@@ -1,0 +1,10 @@
+{
+  "name": "pstack-extras",
+  "version": "1.0.0",
+  "description": "Vendored skills that complement pstack: cursor-team-kit, superpowers, and mattpocock/skills, each at a pinned commit.",
+  "author": {
+    "name": "Anas Yousef",
+    "url": "https://github.com/anas-yousef"
+  },
+  "license": "MIT"
+}

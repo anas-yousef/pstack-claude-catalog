@@ -1,0 +1,22 @@
+{
+  "name": "pstack-claude-catalog",
+  "owner": {
+    "name": "Anas Yousef",
+    "url": "https://github.com/anas-yousef"
+  },
+  "description": "Pinned Claude Code catalog: the pstack-claude port as upstream ships it, plus vendored cursor-team-kit, superpowers, and mattpocock skills.",
+  "plugins": [
+    {
+      "name": "pstack",
+      "source": "./plugins/pstack",
+      "description": "pstack-claude by Michael Denyer, a Claude Code port of Lauren Tan's pstack. Vendored byte for byte at the commit in sources.json.",
+      "version": "0.9.102"
+    },
+    {
+      "name": "pstack-extras",
+      "source": "./plugins/pstack-extras",
+      "description": "Skills pstack-claude does not ship: cursor-team-kit, superpowers (verification-before-completion, systematic-debugging, receiving-code-review), and mattpocock/skills (domain-modeling, writing-for-agents, wizard).",
+      "version": "1.0.0"
+    }
+  ]
+}

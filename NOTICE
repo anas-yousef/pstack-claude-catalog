@@ -1,0 +1,51 @@
+pstack-claude-catalog
+Copyright (c) 2026 Anas Yousef. MIT License, see LICENSE.
+
+The root LICENSE covers original work only: README.md, NOTICE, sources.json,
+.claude-plugin/marketplace.json, plugins/pstack-extras/.claude-plugin/plugin.json,
+and tools/sync.mjs.
+
+Everything else is vendored from the projects below under their own MIT
+licenses, byte for byte. Pinned commits are in sources.json. tools/sync.mjs
+refreshes the vendored paths from those commits.
+
+pstack-claude
+  Source:  https://github.com/michael-denyer/pstack-claude (plugins/pstack/)
+  Commit:  356c6e0f978df729eb16f227d795f34d221c5aad
+  License: MIT, Copyright (c) 2026 Lauren Tan; port changes Copyright (c) 2026
+           Michael Denyer. See third-party/pstack-claude/LICENSE and NOTICE.md.
+           Skills the port took from cursor-team-kit and thermos keep those
+           licenses: third-party/pstack-claude/LICENSE-cursor-team-kit and
+           LICENSE-thermos.
+  Files:   plugins/pstack/, third-party/pstack-claude/
+  Changes: none. Model roles are the port's own defaults.
+
+cursor-team-kit
+  Source:  https://github.com/cursor/plugins (cursor-team-kit/skills/)
+  Commit:  7698375f92a729f8bb89d113c633dce9ff9dc6db
+  License: MIT, Copyright (c) 2026 Cursor. See third-party/cursor-team-kit/LICENSE.
+  Files:   plugins/pstack-extras/skills/check-compiler-errors, control-cli,
+           control-ui, loop-on-ci, new-branch-and-pr, pr-review-canvas,
+           review-and-ship, run-smoke-tests, verify-this, weekly-review,
+           workflow-from-chats
+  Changes: none.
+  Not vendored: deslop, fix-ci, fix-merge-conflicts, get-pr-comments,
+           make-pr-easy-to-review, what-did-i-get-done, and
+           thermo-nuclear-code-quality-review, which pstack-claude already
+           ships; the agents, whose model fields are Cursor slugs; and the
+           .mdc rules, which Claude Code does not load.
+
+superpowers
+  Source:  https://github.com/obra/superpowers (skills/)
+  Commit:  2ce8aa15d05bd57213e6f746f953aafb7ded7a8b
+  License: MIT, Copyright (c) 2025 Jesse Vincent. See third-party/superpowers/LICENSE.
+  Files:   plugins/pstack-extras/skills/verification-before-completion,
+           systematic-debugging, receiving-code-review
+  Changes: none.
+
+mattpocock/skills
+  Source:  https://github.com/mattpocock/skills (skills/engineering/, skills/productivity/)
+  Commit:  5beb35b040e3de97e54fa9e386d7e42d15c295c2
+  License: MIT, Copyright (c) 2026 Matt Pocock. See third-party/mattpocock-skills/LICENSE.
+  Files:   plugins/pstack-extras/skills/domain-modeling, writing-for-agents, wizard
+  Changes: none.
