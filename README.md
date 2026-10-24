@@ -10,7 +10,7 @@ A pinned Claude Code plugin marketplace. It holds [pstack-claude](https://github
   - from superpowers: `verification-before-completion`, `systematic-debugging`, and `receiving-code-review`
   - from mattpocock/skills: `domain-modeling`, `writing-for-agents`, and `wizard`
 
-Original lean skills may live in `pstack-extras` for Cursor and Claude alignment when `plugins/pstack/` must stay byte for byte with pstack-claude. `committed-browser-proof` is one, and its directory is on the `ORIGINAL` list in `tools/sync.mjs` so the next sync keeps it.
+Original lean skills may live in `pstack-extras` for Cursor and Claude alignment when `plugins/pstack/` must stay byte for byte with pstack-claude. `committed-browser-proof` and `local-supabase` are two, and their directories are on the `ORIGINAL` list in `tools/sync.mjs` so the next sync keeps them. For a greenfield product that needs a database, auth, or row-level security, use `local-supabase`.
 
 `NOTICE` lists each source, its license, and what is left out. `sources.json` pins the upstream commits.
 
