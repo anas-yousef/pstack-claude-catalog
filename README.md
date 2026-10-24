@@ -30,6 +30,8 @@ Do not also enable `pstack@pstack-claude` in the same project. Both plugins are 
 
 ## Update
 
+`node tools/sync.mjs --check` compares each pin in `sources.json` with the default branch of that remote. `--outdated` is the same check. The command prints one line per source and leaves every file in the tree unchanged. Exit 0 means every mapped path matches its pin, including when the branch tip has commits that leave those paths alone. The process exits 1 when a mapped path differs, which is the signal to bump that pin. It also exits 1 when it cannot read a remote.
+
 1. Edit a commit in `sources.json`.
 2. Run `node tools/sync.mjs`. Pass `--from <name>=<checkout>` to use a clean local checkout at that commit instead of fetching.
 3. Review the diff, update the commit and file lists in `NOTICE`, and commit.
