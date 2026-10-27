@@ -13,7 +13,7 @@ refreshes the vendored paths from those commits.
 
 pstack-claude
   Source:  https://github.com/michael-denyer/pstack-claude (plugins/pstack/)
-  Commit:  356c6e0f978df729eb16f227d795f34d221c5aad
+  Commit:  36885ea631d2afd9482cf9333cc4bbc829b3b02d
   License: MIT, Copyright (c) 2026 Lauren Tan; port changes Copyright (c) 2026
            Michael Denyer. See third-party/pstack-claude/LICENSE and NOTICE.md.
            Skills the port took from cursor-team-kit and thermos keep those
