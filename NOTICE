@@ -4,8 +4,8 @@ Copyright (c) 2026 Anas Yousef. MIT License, see LICENSE.
 The root LICENSE covers original work only: README.md, NOTICE, sources.json,
 .claude-plugin/marketplace.json, plugins/pstack-extras/.claude-plugin/plugin.json,
 plugins/pstack-extras/skills/committed-browser-proof/,
-plugins/pstack-extras/skills/local-supabase/, tools/sync.mjs, and
-tools/sync.test.mjs.
+plugins/pstack-extras/skills/local-supabase/, profiles/, tools/sync.mjs,
+and tools/sync.test.mjs.
 
 Everything else is vendored from the projects below under their own MIT
 licenses, byte for byte. Pinned commits are in sources.json. tools/sync.mjs

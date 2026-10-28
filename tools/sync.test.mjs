@@ -44,6 +44,8 @@ function catalog(t) {
   writeFileSync(path.join(proof, 'SKILL.md'), 'proof-sentinel\n')
   writeFileSync(path.join(proof, 'notes.txt'), 'keep-me\n')
   mkdirSync(path.join(root, 'plugins', 'pstack-extras', '.claude-plugin'), { recursive: true })
+  mkdirSync(path.join(root, 'profiles'), { recursive: true })
+  writeFileSync(path.join(root, 'profiles', 'lean.md'), 'profile-sentinel\n')
   writeFileSync(path.join(root, 'stray.txt'), 'stray\n')
   return root
 }
@@ -336,6 +338,7 @@ test('a write at the pin is idempotent and keeps original files', (t) => {
   assert.equal(exists(root, 'stray.txt'), false)
   assert.equal(readFileSync(path.join(root, 'plugins/pstack-extras/skills/committed-browser-proof/SKILL.md'), 'utf8'), 'proof-sentinel\n')
   assert.equal(readFileSync(path.join(root, 'plugins/pstack-extras/skills/committed-browser-proof/notes.txt'), 'utf8'), 'keep-me\n')
+  assert.equal(readFileSync(path.join(root, 'profiles/lean.md'), 'utf8'), 'profile-sentinel\n')
   const after = snapshot(root)
   const second = run(root, [])
   assert.equal(second.status, 0, second.stderr)

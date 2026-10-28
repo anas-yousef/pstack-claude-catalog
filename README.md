@@ -1,6 +1,6 @@
 # pstack-claude-catalog
 
-A pinned Claude Code plugin marketplace. It holds [pstack-claude](https://github.com/michael-denyer/pstack-claude) as upstream ships it, plus the extra skills [pstack-grok](https://github.com/anas-yousef/pstack-grok) vendors for Cursor. Model choice is the pstack-claude port's. This repo sets none.
+A pinned Claude Code plugin marketplace. It holds [pstack-claude](https://github.com/michael-denyer/pstack-claude) as upstream ships it, plus the extra skills [pstack-grok](https://github.com/anas-yousef/pstack-grok) vendors for Cursor. The plugins keep the pstack-claude model defaults. `profiles/` holds optional per-role model mixes.
 
 ## Plugins
 
@@ -27,6 +27,24 @@ claude plugin install pstack-extras@pstack-claude-catalog
 ```
 
 Do not also enable `pstack@pstack-claude` in the same project. Both plugins are named `pstack`, so they share the `pstack:` namespace, and Claude Code leaves out one of their hooks.
+
+## Model profiles
+
+pstack-claude reads its per-role models from a `pstack-models.md` sheet. With no sheet, every role runs on the defaults that `plugins/pstack/models.json` stamps into each skill. `profiles/` holds complete sheets with other mixes. Each role line names a model family and its own reasoning effort, as in `sonnet @high`, so two roles on the same model can run at different levels. Reasoning effort is how long the model thinks before it answers. A lower level spends fewer tokens per call.
+
+| Profile | Mix |
+| --- | --- |
+| `balanced` | Opus for most roles, Sonnet for feature work and workers, Fable for the strongest judgment. `high` by default, `xhigh` for bug-fix, perf-issue, the why synthesizer, and judges. |
+| `lean` | Sonnet and Haiku, with Opus only for the strongest judgment. Haiku explores at `medium`. Sonnet works at `high`, and at `xhigh` for bug-fix and perf-issue. |
+| `max` | Opus and Fable at `xhigh`, and at `max` for bug-fix, perf-issue, the strongest judgment, judges, and design. Exploration and workers stay at `high`. |
+
+To use a profile in a project, copy it to `.claude/pstack-models.md` and add this line to the project's `CLAUDE.md`:
+
+```text
+@.claude/pstack-models.md
+```
+
+The sheet states that it takes precedence over `<config>/pstack-models.md`, which `/setup-pstack` writes. Each profile passes `plugins/pstack/skills/setup-pstack/scripts/check-sheet.sh`. To add a mix, add one file to `profiles/` with every role line and a `Profile:` line, and run that check on it. `tools/sync.mjs` never writes or deletes `profiles/`.
 
 ## Update
 
