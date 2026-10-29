@@ -10,7 +10,7 @@
       "name": "pstack",
       "source": "./plugins/pstack",
       "description": "pstack-claude by Michael Denyer, a Claude Code port of Lauren Tan's pstack. Vendored byte for byte at the commit in sources.json.",
-      "version": "0.9.108"
+      "version": "0.9.111"
     },
     {
       "name": "pstack-extras",
