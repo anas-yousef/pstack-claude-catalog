@@ -13,6 +13,8 @@ Use this skill for a product or a large feature, and when the user runs `/build`
 
 A one-line fix stays on poteto-mode's bug-fix playbook.
 
+When the product starts from an old repo, follow `../greenfield/SKILL.md` before this skill.
+
 ## Roles
 
 The implementer uses the `feature, refactoring` role. The reviewer uses the `judgment and prose` role. Resolve both from the pstack model sheet. Do not add role lines under `plugins/pstack`.
