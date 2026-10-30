@@ -8,12 +8,12 @@ A pinned Claude Code plugin marketplace. It holds [pstack-claude](https://github
 - **`pstack-extras`** (`plugins/pstack-extras/`). Skills that pstack-claude does not ship:
   - from cursor-team-kit: `check-compiler-errors`, `control-cli`, `control-ui`, `loop-on-ci`, `new-branch-and-pr`, `review-and-ship`, `run-smoke-tests`, and `verify-this`
   - from superpowers: `verification-before-completion`, `systematic-debugging`, and `receiving-code-review`
-  - from mattpocock/skills: `domain-modeling`, `writing-for-agents`, and `wizard`
+  - from mattpocock/skills: `domain-modeling`, `writing-for-agents`, `wizard`, and `grilling`
   - from addyosmani/agent-skills: `spec-driven-development`, `planning-and-task-breakdown`, `incremental-implementation`, `documentation-and-adrs`, `shipping-and-launch`, and `doubt-driven-development`
 
-Original lean skills may live in `pstack-extras` for Cursor and Claude alignment when `plugins/pstack/` must stay byte for byte with pstack-claude. `committed-browser-proof`, `local-supabase`, and `build-auto` are on the `ORIGINAL` list in `tools/sync.mjs`, along with `plugins/pstack-extras/commands/`, so the next sync keeps them. For a greenfield product that needs a database, auth, or row-level security, use `local-supabase`.
+Original lean skills may live in `pstack-extras` for Cursor and Claude alignment when `plugins/pstack/` must stay byte for byte with pstack-claude. `committed-browser-proof`, `local-supabase`, `build-auto`, `legacy-critique`, `prd`, `merge-reviews`, and `greenfield` are on the `ORIGINAL` list in `tools/sync.mjs`, along with `plugins/pstack-extras/commands/`, so the next sync keeps them. For a greenfield product that needs a database, auth, or row-level security, use `local-supabase`.
 
-poteto-mode is the single entry point. For a product or a large feature, poteto-mode invokes `build-auto`. `/spec` and `/build` are Claude commands in this plugin. They call the same skills. `/build auto` approves the plan and runs every pending task. Codex loads the skills from this plugin. The commands are the Claude wrappers.
+poteto-mode is the single entry point. For a product or a large feature, poteto-mode invokes `build-auto`. A product that starts from an old repo follows `greenfield` first. That skill runs `legacy-critique`, then `merge-reviews`, then `prd`, then `build-auto`. `/critique`, `/prd`, `/merge-reviews`, `/spec`, and `/build` are the Claude commands. Codex loads the skills. The commands are the Claude wrappers. `/build auto` approves the plan and runs every pending task.
 
 `NOTICE` lists each source, its license, and what is left out. `sources.json` pins the upstream commits.
 

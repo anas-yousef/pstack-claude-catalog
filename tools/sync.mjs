@@ -23,7 +23,7 @@ import { fileURLToPath } from 'node:url'
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const SHA = /^[0-9a-f]{40}$/
 const USAGE = 'usage: node tools/sync.mjs [--check] [--outdated] [--from <name>=<checkout>]...'
-const ORIGINAL = ['.git/', 'README.md', 'NOTICE', 'LICENSE', 'sources.json', '.claude-plugin/', 'plugins/pstack-extras/.claude-plugin/', 'plugins/pstack-extras/commands/', 'plugins/pstack-extras/skills/build-auto/', 'plugins/pstack-extras/skills/committed-browser-proof/', 'plugins/pstack-extras/skills/local-supabase/', 'profiles/', 'tools/']
+const ORIGINAL = ['.git/', 'README.md', 'NOTICE', 'LICENSE', 'sources.json', '.claude-plugin/', 'plugins/pstack-extras/.claude-plugin/', 'plugins/pstack-extras/commands/', 'plugins/pstack-extras/skills/build-auto/', 'plugins/pstack-extras/skills/committed-browser-proof/', 'plugins/pstack-extras/skills/greenfield/', 'plugins/pstack-extras/skills/legacy-critique/', 'plugins/pstack-extras/skills/local-supabase/', 'plugins/pstack-extras/skills/merge-reviews/', 'plugins/pstack-extras/skills/prd/', 'profiles/', 'tools/']
 
 function fail(message) {
   process.stderr.write(`${message}\n`)

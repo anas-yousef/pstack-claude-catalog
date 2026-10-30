@@ -15,8 +15,8 @@
     {
       "name": "pstack-extras",
       "source": "./plugins/pstack-extras",
-      "description": "Skills pstack-claude does not ship: cursor-team-kit, superpowers, mattpocock/skills, addyosmani/agent-skills, and original build-auto. poteto-mode invokes build-auto for a product or a large feature.",
-      "version": "1.1.0"
+      "description": "Skills pstack-claude does not ship: cursor-team-kit, superpowers, mattpocock/skills, addyosmani/agent-skills, and original skills. greenfield runs legacy-critique, merge-reviews, prd, and build-auto. poteto-mode stays the entry point.",
+      "version": "1.2.0"
     }
   ]
 }

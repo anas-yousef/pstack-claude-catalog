@@ -4,7 +4,7 @@ disable-model-invocation: true
 argument-hint: "[auto]"
 ---
 
-poteto-mode is the single entry point. For a product or a large feature, poteto-mode invokes `build-auto`.
+poteto-mode is the single entry point. For a product or a large feature, poteto-mode invokes `build-auto`. When the product starts from an old repo, follow the `greenfield` skill before this command.
 
 Invoke the `build-auto` skill and follow it.
 
