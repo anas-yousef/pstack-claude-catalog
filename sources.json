@@ -4,7 +4,7 @@
     {
       "name": "pstack-claude",
       "repo": "https://github.com/michael-denyer/pstack-claude",
-      "commit": "47c6f8020ad3a4dc533f220eb362a144bfac2153",
+      "commit": "22b5e137e945cb65dd29dac5fc703c13d83a00aa",
       "paths": {
         "plugins/pstack/": "plugins/pstack/",
         "LICENSE": "third-party/pstack-claude/LICENSE",
