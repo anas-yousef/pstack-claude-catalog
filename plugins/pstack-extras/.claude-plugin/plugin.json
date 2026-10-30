@@ -1,7 +1,8 @@
 {
   "name": "pstack-extras",
-  "version": "1.0.0",
-  "description": "Vendored skills that complement pstack: cursor-team-kit, superpowers, and mattpocock/skills, each at a pinned commit.",
+  "version": "1.1.0",
+  "description": "Skills that complement pstack. Pinned sources are cursor-team-kit, superpowers, mattpocock/skills, and addyosmani/agent-skills. Original skills are build-auto, committed-browser-proof, and local-supabase. /spec and /build call those skills. poteto-mode remains the entry point.",
+  "commands": "./commands",
   "author": {
     "name": "Anas Yousef",
     "url": "https://github.com/anas-yousef"

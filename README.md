@@ -6,11 +6,14 @@ A pinned Claude Code plugin marketplace. It holds [pstack-claude](https://github
 
 - **`pstack`** (`plugins/pstack/`). The pstack-claude plugin, byte for byte. It provides `/pstack:poteto-mode`, the `pstack:poteto-agent` and `pstack:comment-sicko` agents, the principles, and the session hook.
 - **`pstack-extras`** (`plugins/pstack-extras/`). Skills that pstack-claude does not ship:
-  - from cursor-team-kit: `check-compiler-errors`, `control-cli`, `control-ui`, `loop-on-ci`, `new-branch-and-pr`, `pr-review-canvas`, `review-and-ship`, `run-smoke-tests`, `verify-this`, `weekly-review`, and `workflow-from-chats`
+  - from cursor-team-kit: `check-compiler-errors`, `control-cli`, `control-ui`, `loop-on-ci`, `new-branch-and-pr`, `review-and-ship`, `run-smoke-tests`, and `verify-this`
   - from superpowers: `verification-before-completion`, `systematic-debugging`, and `receiving-code-review`
   - from mattpocock/skills: `domain-modeling`, `writing-for-agents`, and `wizard`
+  - from addyosmani/agent-skills: `spec-driven-development`, `planning-and-task-breakdown`, `incremental-implementation`, `documentation-and-adrs`, `shipping-and-launch`, and `doubt-driven-development`
 
-Original lean skills may live in `pstack-extras` for Cursor and Claude alignment when `plugins/pstack/` must stay byte for byte with pstack-claude. `committed-browser-proof` and `local-supabase` are two, and their directories are on the `ORIGINAL` list in `tools/sync.mjs` so the next sync keeps them. For a greenfield product that needs a database, auth, or row-level security, use `local-supabase`.
+Original lean skills may live in `pstack-extras` for Cursor and Claude alignment when `plugins/pstack/` must stay byte for byte with pstack-claude. `committed-browser-proof`, `local-supabase`, and `build-auto` are on the `ORIGINAL` list in `tools/sync.mjs`, along with `plugins/pstack-extras/commands/`, so the next sync keeps them. For a greenfield product that needs a database, auth, or row-level security, use `local-supabase`.
+
+poteto-mode is the single entry point. For a product or a large feature, poteto-mode invokes `build-auto`. `/spec` and `/build` are Claude commands in this plugin. They call the same skills. `/build auto` approves the plan and runs every pending task. Codex loads the skills from this plugin. The commands are the Claude wrappers.
 
 `NOTICE` lists each source, its license, and what is left out. `sources.json` pins the upstream commits.
 
@@ -54,7 +57,9 @@ The sheet states that it takes precedence over `<config>/pstack-models.md`, whic
 2. Run `node tools/sync.mjs`. Pass `--from <name>=<checkout>` to use a clean local checkout at that commit instead of fetching.
 3. Review the diff, update the commit and file lists in `NOTICE`, and commit.
 
-A second run with the same pins writes the same bytes. A project picks up the change when its pin moves to the new commit.
+The agent-skills pin has a local patch recorded under Changes in `NOTICE`. `node tools/sync.mjs` restores the upstream sentences for that source. Reapply those substitutions before committing a refresh.
+
+A second sync with the same pins writes the same upstream bytes. A project picks up the catalog change when its pin moves to the new commit.
 
 ## License
 
