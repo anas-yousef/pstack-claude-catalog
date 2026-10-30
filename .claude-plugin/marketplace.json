@@ -4,7 +4,7 @@
     "name": "Anas Yousef",
     "url": "https://github.com/anas-yousef"
   },
-  "description": "Pinned Claude Code catalog: the pstack-claude port as upstream ships it, plus vendored cursor-team-kit, superpowers, and mattpocock skills.",
+  "description": "Pinned Claude Code catalog: the pstack-claude port as upstream ships it, plus vendored cursor-team-kit, superpowers, mattpocock, and addyosmani/agent-skills.",
   "plugins": [
     {
       "name": "pstack",
@@ -15,8 +15,8 @@
     {
       "name": "pstack-extras",
       "source": "./plugins/pstack-extras",
-      "description": "Skills pstack-claude does not ship: cursor-team-kit, superpowers (verification-before-completion, systematic-debugging, receiving-code-review), and mattpocock/skills (domain-modeling, writing-for-agents, wizard).",
-      "version": "1.0.0"
+      "description": "Skills pstack-claude does not ship: cursor-team-kit, superpowers, mattpocock/skills, addyosmani/agent-skills, and original build-auto. poteto-mode invokes build-auto for a product or a large feature.",
+      "version": "1.1.0"
     }
   ]
 }

@@ -23,12 +23,9 @@
         "cursor-team-kit/skills/control-ui/": "plugins/pstack-extras/skills/control-ui/",
         "cursor-team-kit/skills/loop-on-ci/": "plugins/pstack-extras/skills/loop-on-ci/",
         "cursor-team-kit/skills/new-branch-and-pr/": "plugins/pstack-extras/skills/new-branch-and-pr/",
-        "cursor-team-kit/skills/pr-review-canvas/": "plugins/pstack-extras/skills/pr-review-canvas/",
         "cursor-team-kit/skills/review-and-ship/": "plugins/pstack-extras/skills/review-and-ship/",
         "cursor-team-kit/skills/run-smoke-tests/": "plugins/pstack-extras/skills/run-smoke-tests/",
         "cursor-team-kit/skills/verify-this/": "plugins/pstack-extras/skills/verify-this/",
-        "cursor-team-kit/skills/weekly-review/": "plugins/pstack-extras/skills/weekly-review/",
-        "cursor-team-kit/skills/workflow-from-chats/": "plugins/pstack-extras/skills/workflow-from-chats/",
         "cursor-team-kit/LICENSE": "third-party/cursor-team-kit/LICENSE"
       }
     },
@@ -52,6 +49,20 @@
         "skills/productivity/writing-for-agents/": "plugins/pstack-extras/skills/writing-for-agents/",
         "skills/engineering/wizard/": "plugins/pstack-extras/skills/wizard/",
         "LICENSE": "third-party/mattpocock-skills/LICENSE"
+      }
+    },
+    {
+      "name": "agent-skills",
+      "repo": "https://github.com/addyosmani/agent-skills",
+      "commit": "eb07f19f52c2669f2364897aaa293e2aaddd7b1c",
+      "paths": {
+        "skills/spec-driven-development/": "plugins/pstack-extras/skills/spec-driven-development/",
+        "skills/planning-and-task-breakdown/": "plugins/pstack-extras/skills/planning-and-task-breakdown/",
+        "skills/incremental-implementation/": "plugins/pstack-extras/skills/incremental-implementation/",
+        "skills/documentation-and-adrs/": "plugins/pstack-extras/skills/documentation-and-adrs/",
+        "skills/shipping-and-launch/": "plugins/pstack-extras/skills/shipping-and-launch/",
+        "skills/doubt-driven-development/": "plugins/pstack-extras/skills/doubt-driven-development/",
+        "LICENSE": "third-party/agent-skills/LICENSE"
       }
     }
   ]

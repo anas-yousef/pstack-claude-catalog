@@ -3,13 +3,16 @@ Copyright (c) 2026 Anas Yousef. MIT License, see LICENSE.
 
 The root LICENSE covers original work only: README.md, NOTICE, sources.json,
 .claude-plugin/marketplace.json, plugins/pstack-extras/.claude-plugin/plugin.json,
+plugins/pstack-extras/commands/, plugins/pstack-extras/skills/build-auto/,
 plugins/pstack-extras/skills/committed-browser-proof/,
 plugins/pstack-extras/skills/local-supabase/, profiles/, tools/sync.mjs,
 and tools/sync.test.mjs.
 
 Everything else is vendored from the projects below under their own MIT
-licenses, byte for byte. Pinned commits are in sources.json. tools/sync.mjs
-refreshes the vendored paths from those commits.
+licenses, byte for byte, except the agent-skills substitutions under Changes.
+Pinned commits are in sources.json. tools/sync.mjs refreshes the vendored
+paths from those commits and restores the upstream sentences. Reapply the
+agent-skills substitutions after a refresh of that source.
 
 pstack-claude
   Source:  https://github.com/michael-denyer/pstack-claude (plugins/pstack/)
@@ -27,15 +30,16 @@ cursor-team-kit
   Commit:  7698375f92a729f8bb89d113c633dce9ff9dc6db
   License: MIT, Copyright (c) 2026 Cursor. See third-party/cursor-team-kit/LICENSE.
   Files:   plugins/pstack-extras/skills/check-compiler-errors, control-cli,
-           control-ui, loop-on-ci, new-branch-and-pr, pr-review-canvas,
-           review-and-ship, run-smoke-tests, verify-this, weekly-review,
-           workflow-from-chats
+           control-ui, loop-on-ci, new-branch-and-pr, review-and-ship,
+           run-smoke-tests, verify-this
   Changes: none.
   Not vendored: deslop, fix-ci, fix-merge-conflicts, get-pr-comments,
            make-pr-easy-to-review, what-did-i-get-done, and
            thermo-nuclear-code-quality-review, which pstack-claude already
            ships; the agents, whose model fields are Cursor slugs; and the
-           .mdc rules, which Claude Code does not load.
+           .mdc rules, which Claude Code does not load. pr-review-canvas,
+           weekly-review, and workflow-from-chats were dropped from
+           pstack-extras. They are not in plugins/pstack.
 
 superpowers
   Source:  https://github.com/obra/superpowers (skills/)
@@ -51,3 +55,38 @@ mattpocock/skills
   License: MIT, Copyright (c) 2026 Matt Pocock. See third-party/mattpocock-skills/LICENSE.
   Files:   plugins/pstack-extras/skills/domain-modeling, writing-for-agents, wizard
   Changes: none.
+
+agent-skills
+  Source:  https://github.com/addyosmani/agent-skills (skills/)
+  Commit:  eb07f19f52c2669f2364897aaa293e2aaddd7b1c
+  License: MIT, Copyright (c) 2025 Addy Osmani. See third-party/agent-skills/LICENSE.
+  Files:   plugins/pstack-extras/skills/spec-driven-development,
+           planning-and-task-breakdown, incremental-implementation,
+           documentation-and-adrs, shipping-and-launch, doubt-driven-development
+  Changes: three local substitutions, so these skills point at skills this
+           catalog ships. A later `node tools/sync.mjs` restores the upstream
+           sentences. Reapply the substitutions below before committing a
+           refresh of this source.
+           spec-driven-development Phase 4 follows
+           plugins/pstack-extras/skills/incremental-implementation/SKILL.md
+           and plugins/pstack/skills/tdd/SKILL.md, and tells the reader to
+           load the spec sections the current task names. The upstream
+           context-engineering clause is not vendored with this source.
+           incremental-implementation's checklist cites
+           plugins/pstack/skills/tdd/SKILL.md. pstack tdd has no "Discover
+           the Stack First" section, so that title is not in the sentence.
+           doubt-driven-development's interaction list cites pstack tdd at
+           plugins/pstack/skills/tdd/SKILL.md and superpowers
+           systematic-debugging at
+           plugins/pstack-extras/skills/systematic-debugging/SKILL.md.
+  Not vendored: hooks, using-agent-skills, test-driven-development,
+           debugging-and-error-recovery, agent personas, commands, evals,
+           and the other skills. Upstream has no NOTICE file. Shared
+           references under the upstream references/ directory are not
+           vendored, so these relative links do not resolve.
+           planning-and-task-breakdown and incremental-implementation link
+           to ../../references/definition-of-done.md. shipping-and-launch
+           links to definition-of-done.md, security-checklist.md,
+           performance-checklist.md, and accessibility-checklist.md.
+           doubt-driven-development links to
+           ../../references/orchestration-patterns.md.
