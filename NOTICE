@@ -68,7 +68,11 @@ agent-skills
   License: MIT, Copyright (c) 2025 Addy Osmani. See third-party/agent-skills/LICENSE.
   Files:   plugins/pstack-extras/skills/spec-driven-development,
            planning-and-task-breakdown, incremental-implementation,
-           documentation-and-adrs, shipping-and-launch, doubt-driven-development
+           documentation-and-adrs, shipping-and-launch,
+           doubt-driven-development, performance-optimization,
+           frontend-ui-engineering, browser-testing-with-devtools,
+           plus plugins/pstack-extras/references/performance-checklist.md
+           and accessibility-checklist.md
   Changes: three local substitutions, so these skills point at skills this
            catalog ships. A later `node tools/sync.mjs` restores the upstream
            sentences. Reapply the substitutions below before committing a
@@ -88,11 +92,28 @@ agent-skills
   Not vendored: hooks, using-agent-skills, test-driven-development,
            debugging-and-error-recovery, agent personas, commands, evals,
            and the other skills. Upstream has no NOTICE file. Shared
-           references under the upstream references/ directory are not
-           vendored, so these relative links do not resolve.
+           references other than the two checklists above are not vendored,
+           so these relative links do not resolve.
            planning-and-task-breakdown and incremental-implementation link
            to ../../references/definition-of-done.md. shipping-and-launch
-           links to definition-of-done.md, security-checklist.md,
-           performance-checklist.md, and accessibility-checklist.md.
+           links to definition-of-done.md and security-checklist.md.
            doubt-driven-development links to
            ../../references/orchestration-patterns.md.
+
+vercel-labs/agent-skills
+  Source:  https://github.com/vercel-labs/agent-skills (skills/react-best-practices/)
+  Commit:  1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62
+  License: MIT. The skill frontmatter and the repository README say MIT.
+           This commit publishes no LICENSE file, so third-party/ has no copy.
+  Files:   plugins/pstack-extras/skills/vercel-react-best-practices
+           (upstream skills/react-best-practices/, every file in that directory)
+  Changes: none.
+
+supabase/agent-skills
+  Source:  https://github.com/supabase/agent-skills (skills/)
+  Commit:  c9be0e931b7930f7d02126d04774d904c381e7d7
+  License: MIT, Copyright (c) 2026 Supabase. See
+           third-party/supabase-agent-skills/LICENSE.
+  Files:   plugins/pstack-extras/skills/supabase (author supabase, version 0.1.2),
+           supabase-postgres-best-practices (version 1.1.1)
+  Changes: none.

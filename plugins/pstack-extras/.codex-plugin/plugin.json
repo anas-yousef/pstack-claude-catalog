@@ -1,7 +1,7 @@
 {
   "name": "pstack-extras",
   "version": "1.2.0",
-  "description": "Skills that complement pstack. Pinned sources are cursor-team-kit, superpowers, mattpocock/skills, and addyosmani/agent-skills. Original skills are build-auto, committed-browser-proof, local-supabase, legacy-critique, prd, merge-reviews, and greenfield. greenfield runs the path from an old repo to build-auto. poteto-mode remains the entry point. Codex loads these skills from ./skills/.",
+  "description": "Skills that complement pstack. Pinned sources are cursor-team-kit, superpowers, mattpocock/skills, addyosmani/agent-skills, vercel-labs/agent-skills, and supabase/agent-skills. Original skills are build-auto, committed-browser-proof, local-supabase, legacy-critique, prd, merge-reviews, and greenfield. greenfield runs the path from an old repo to build-auto. poteto-mode remains the entry point. Codex loads these skills from ./skills/.",
   "author": {
     "name": "Anas Yousef",
     "url": "https://github.com/anas-yousef"
@@ -22,7 +22,7 @@
   "interface": {
     "displayName": "pstack-extras",
     "shortDescription": "Extra skills that complement pstack, including greenfield, prd, and legacy-critique",
-    "longDescription": "pstack-extras adds skills pstack does not ship. Vendored skills come from cursor-team-kit, superpowers, mattpocock/skills, and addyosmani/agent-skills. Original skills cover a greenfield path from an old repo through legacy-critique, merge-reviews, and prd into build-auto. poteto-mode stays the entry point. Codex loads the shared skills directory.",
+    "longDescription": "pstack-extras adds skills pstack does not ship. Vendored skills come from cursor-team-kit, superpowers, mattpocock/skills, addyosmani/agent-skills, vercel-labs/agent-skills, and supabase/agent-skills. Original skills cover a greenfield path from an old repo through legacy-critique, merge-reviews, and prd into build-auto. poteto-mode stays the entry point. Codex loads the shared skills directory.",
     "developerName": "Anas Yousef",
     "category": "Developer Tools",
     "capabilities": [

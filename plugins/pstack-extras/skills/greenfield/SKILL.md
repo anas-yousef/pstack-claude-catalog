@@ -7,6 +7,8 @@ description: Route a new product that starts from an old repo. Use for a greenfi
 
 poteto-mode stays the entry point. This skill is the path a new product takes. `plugins/pstack` does not carry this playbook.
 
+On frontend or UI work, load `../frontend-ui-engineering/SKILL.md` and `../vercel-react-best-practices/SKILL.md`. On performance work, load `../performance-optimization/SKILL.md`. For browser verification, load `../browser-testing-with-devtools/SKILL.md`. On Supabase or Postgres work, load `../supabase/SKILL.md` and `../supabase-postgres-best-practices/SKILL.md`.
+
 Follow each step's skill. Skip a step that has nothing to read.
 
 1. Follow `../legacy-critique/SKILL.md` when an old repo is in scope. One critique per harness, at `docs/reviews/<harness>/legacy-critique.md`.

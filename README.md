@@ -9,7 +9,9 @@ A pinned Claude Code plugin marketplace. It holds [pstack-claude](https://github
   - from cursor-team-kit: `check-compiler-errors`, `control-cli`, `control-ui`, `loop-on-ci`, `new-branch-and-pr`, `review-and-ship`, `run-smoke-tests`, and `verify-this`
   - from superpowers: `verification-before-completion`, `systematic-debugging`, and `receiving-code-review`
   - from mattpocock/skills: `domain-modeling`, `writing-for-agents`, `wizard`, and `grilling`
-  - from addyosmani/agent-skills: `spec-driven-development`, `planning-and-task-breakdown`, `incremental-implementation`, `documentation-and-adrs`, `shipping-and-launch`, and `doubt-driven-development`
+  - from addyosmani/agent-skills: `spec-driven-development`, `planning-and-task-breakdown`, `incremental-implementation`, `documentation-and-adrs`, `shipping-and-launch`, `doubt-driven-development`, `performance-optimization`, `frontend-ui-engineering`, and `browser-testing-with-devtools`, plus `references/performance-checklist.md` and `references/accessibility-checklist.md`
+  - from vercel-labs/agent-skills: `vercel-react-best-practices`
+  - from supabase/agent-skills: `supabase` and `supabase-postgres-best-practices`
 
 Original lean skills may live in `pstack-extras` for Cursor and Claude alignment when `plugins/pstack/` must stay byte for byte with pstack-claude. `committed-browser-proof`, `local-supabase`, `build-auto`, `legacy-critique`, `prd`, `merge-reviews`, and `greenfield` are on the `ORIGINAL` list in `tools/sync.mjs`, along with `plugins/pstack-extras/commands/` and `plugins/pstack-extras/.codex-plugin/`, so the next sync keeps them. For a greenfield product that needs a database, auth, or row-level security, use `local-supabase`.
 
