@@ -39,7 +39,7 @@ const BEGIN = '<!-- pstack:begin -->'
 const END = '<!-- pstack:end -->'
 const BODY = [
   '@.claude/pstack-models.md',
-  'Model sheet: .claude/pstack-models.md. Run exactly node scripts/check-pstack.mjs at session start and report pin vs main.',
+  'Model sheet: .claude/pstack-models.md. Run node scripts/check-pstack.mjs as a single command (no chaining); it prints its own status.',
 ].join('\n')
 
 function readOrEmpty(file) {
@@ -51,39 +51,18 @@ function readOrEmpty(file) {
   }
 }
 
-function isHeading(line) {
-  return /^#{1,6} /.test(line)
-}
-
-function writeText(file, current, next) {
+export function putPstack(file) {
+  const current = readOrEmpty(file)
+  const block = `${BEGIN}\n${BODY}\n${END}\n`
+  const lines = current.split('\n')
+  const start = lines.indexOf('## pstack')
+  const end = start < 0 ? -1 : lines.findIndex((line, index) => index > start && /^#{1,6} /.test(line))
+  const kept = (current.includes(BEGIN) && current.includes(END)
+    ? current.replace(/<!-- pstack:begin -->[\s\S]*?<!-- pstack:end -->\n?/, block)
+    : (start < 0 ? current : [...lines.slice(0, start), ...lines.slice(end < 0 ? lines.length : end)].join('\n'))
+  ).replace(/\s*$/, '')
+  const next = current.includes(BEGIN) && current.includes(END) ? `${kept}\n` : (kept ? `${kept}\n\n${block}` : block)
   if (next === current) return
   mkdirSync(path.dirname(file), { recursive: true })
   writeFileSync(file, next)
-}
-
-function markerBlock() {
-  return `${BEGIN}\n${BODY}\n${END}\n`
-}
-
-export function putPstack(file) {
-  const current = readOrEmpty(file)
-  if (current.includes(BEGIN) && current.includes(END)) {
-    writeText(file, current, current.replace(/<!-- pstack:begin -->[\s\S]*?<!-- pstack:end -->\n?/, markerBlock()))
-    return
-  }
-  const lines = current.split('\n')
-  const start = lines.indexOf('## pstack')
-  let kept = current
-  if (start !== -1) {
-    let end = lines.length
-    for (let index = start + 1; index < lines.length; index += 1) {
-      if (isHeading(lines[index])) {
-        end = index
-        break
-      }
-    }
-    kept = [...lines.slice(0, start), ...lines.slice(end)].join('\n').replace(/\n{3,}/g, '\n\n')
-  }
-  const trimmed = kept.replace(/\s*$/, '')
-  writeText(file, current, trimmed === '' ? markerBlock() : `${trimmed}\n\n${markerBlock()}`)
 }

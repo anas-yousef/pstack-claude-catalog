@@ -25,13 +25,13 @@ poteto-mode is the single entry point. For a product or a large feature, poteto-
 curl -fsSL https://raw.githubusercontent.com/anas-yousef/pstack-claude-catalog/main/tools/init.mjs | node -
 ```
 
-`--profile design-heavy-extra` also selects `codex-design-heavy-extra`. `--codex-profile` overrides that. `max` has no Codex sheet, so it uses `codex-balanced`.
+`--profile design-heavy-extra` also selects `codex-design-heavy-extra`. `--codex-profile` overrides that. `max` has no Codex sheet, so it uses `codex-balanced`. Claude plugins follow the catalog main, and Codex is pinned to the sha.
 
 Claude applies `Bash(node scripts/check-pstack.mjs:*)` only after the workspace is trusted. The project block tells the agent to run exactly `node scripts/check-pstack.mjs`. Init sets `hasTrustDialogAccepted` for this repo in `~/.claude.json`.
 
 Codex reads `model` and `model_reasoning_effort` from the project's `.codex/config.toml` after that project is trusted. Init sets `trust_level = "trusted"` for this repo in `~/.codex/config.toml`.
 
-Inside Codex's read-only sandbox, `node scripts/check-pstack.mjs` has no network and prints `pin <sha> (offline: run outside the sandbox to compare)`.
+Inside Codex's read-only sandbox, `node scripts/check-pstack.mjs` has no network and prints `pstack: offline (exit 0)`.
 
 Run init again to refresh the copied scripts. Do not edit them.
 

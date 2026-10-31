@@ -1,11 +1,21 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 export const SHA = /^[0-9a-f]{40}$/
 
+function catalogBase() {
+  const catalog = process.env.PSTACK_CATALOG
+  if (!catalog) return ''
+  if (/^(https?:|file:)/.test(catalog)) return catalog.replace(/\/$/, '')
+  return pathToFileURL(catalog).href
+}
+
 export function rawUrl(repo, commit, rel) {
-  if (process.env.PSTACK_RAW) return `${process.env.PSTACK_RAW}/${commit}/${rel}`
-  return `https://raw.githubusercontent.com/${githubSlug(repo)}/${commit}/${rel}`
+  const catalog = catalogBase()
+  if (catalog) return `${catalog}/${rel}`
+  const raw = process.env.PSTACK_RAW || `https://raw.githubusercontent.com/${githubSlug(repo)}`
+  return `${raw}/${commit}/${rel}`
 }
 
 export function githubSlug(repo) {
@@ -29,9 +39,10 @@ export async function catalogMain(repo) {
 }
 
 export async function fetchCatalogText(repo, commit, rel) {
-  if (process.env.PSTACK_CATALOG) {
+  const url = rawUrl(repo, commit, rel)
+  if (url.startsWith('file:')) {
     try {
-      return readFileSync(path.join(process.env.PSTACK_CATALOG, rel), 'utf8')
+      return readFileSync(fileURLToPath(url), 'utf8')
     } catch (error) {
       if (error.code !== 'ENOENT') throw error
       const missing = new Error(`missing ${rel}`)
@@ -39,9 +50,7 @@ export async function fetchCatalogText(repo, commit, rel) {
       throw missing
     }
   }
-  const response = await fetch(rawUrl(repo, commit, rel), {
-    headers: { 'User-Agent': 'pstack-claude-catalog' },
-  })
+  const response = await fetch(url, { headers: { 'User-Agent': 'pstack-claude-catalog' } })
   if (!response.ok) {
     const error = new Error(`cannot read ${rel} at ${commit}`)
     error.status = response.status

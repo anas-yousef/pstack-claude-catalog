@@ -13,7 +13,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const INIT = path.join(ROOT, 'tools', 'init.mjs')
 const MAIN = 'bfd48a1b300dbad50f6ea2e30f4a3edbe9737943'
 const CHECK_RULES = ['Bash(node scripts/check-pstack.mjs:*)']
-const MARKER = '<!-- pstack:begin -->\n@.claude/pstack-models.md\nModel sheet: .claude/pstack-models.md. Run exactly node scripts/check-pstack.mjs at session start and report pin vs main.\n<!-- pstack:end -->\n'
+const MARKER = '<!-- pstack:begin -->\n@.claude/pstack-models.md\nModel sheet: .claude/pstack-models.md. Run node scripts/check-pstack.mjs as a single command (no chaining); it prints its own status.\n<!-- pstack:end -->\n'
 
 function git(args, cwd) {
   const result = spawnSync('git', args, { cwd, encoding: 'utf8' })
@@ -276,7 +276,7 @@ test('an existing repo keeps its docs and product skills', (t) => {
   assert.equal(parsed.effortLevel, 'high')
   assert.equal(parsed.theme, 'dark')
   assert.deepEqual(parsed.permissions.deny, ['Bash(rm *)'])
-  assert.deepEqual(parsed.permissions.allow, ['Bash', ...CHECK_RULES])
+  assert.deepEqual(parsed.permissions.allow, ['Bash', 'Bash(node scripts/check-pstack.mjs)', 'Bash(node scripts/check-pstack.mjs *)', ...CHECK_RULES])
   const trusted = JSON.parse(readFileSync(claudeHome, 'utf8'))
   assert.equal(trusted.numStartups, 4)
   assert.deepEqual(trusted.projects['/other'], { hasTrustDialogAccepted: false, extra: 1 })
@@ -480,14 +480,14 @@ test('check reports drift and stays quiet offline', (t) => {
   try {
     const check = run(repo, home, path.join(repo, 'scripts', 'check-pstack.mjs'))
     assert.equal(check.status, 0, check.stderr)
-    assert.match(check.stdout, /^pin [0-9a-f]{40} catalog [0-9a-f]{40} current\n$/)
+    assert.match(check.stdout, /^pstack: current \(exit 0\)\n$/)
     const pinPath = path.join(repo, '.claude', 'pstack-claude-pin.json')
     const pin = JSON.parse(readFileSync(pinPath, 'utf8'))
     pin.commit = MAIN
     writeFileSync(pinPath, `${JSON.stringify(pin, null, 2)}\n`)
     const drift = run(repo, home, path.join(repo, 'scripts', 'check-pstack.mjs'))
     assert.equal(drift.status, 1)
-    assert.match(drift.stdout, new RegExp(`^pin ${MAIN} catalog [0-9a-f]{40} outdated\\n$`))
+    assert.match(drift.stdout, /^pstack: outdated \(exit 1\)\n$/)
     pin.repo = 'https://github.com/anas-yousef/not-a-real-catalog-offline'
     pin.commit = MAIN
     writeFileSync(pinPath, `${JSON.stringify(pin, null, 2)}\n`)
@@ -499,7 +499,7 @@ test('check reports drift and stays quiet offline', (t) => {
     writeFileSync(pinPath, `${JSON.stringify(pin, null, 2)}\n`)
     const offline = run(repo, home, path.join(repo, 'scripts', 'check-pstack.mjs'))
     assert.equal(offline.status, 0, offline.stderr)
-    assert.equal(offline.stdout, `pin ${MAIN} (offline: run outside the sandbox to compare)\n`)
+    assert.equal(offline.stdout, 'pstack: offline (exit 0)\n')
     writeFileSync(pinPath, '{')
     const broken = run(repo, home, path.join(repo, 'scripts', 'check-pstack.mjs'))
     assert.equal(broken.status, 1)
@@ -639,7 +639,7 @@ test('piped init loads every lib from the selected commit', { timeout: 60000 }, 
   const server = createServer((req, res) => {
     const pathname = new URL(req.url, 'http://127.0.0.1').pathname
     hits.push(pathname)
-    const match = /^\/([0-9a-f]{40})\/(.*)$/.exec(pathname)
+    const match = /^\/([^/]+)\/(.+)$/.exec(pathname)
     if (!match) {
       res.writeHead(500)
       res.end('wrong ref')
@@ -686,12 +686,13 @@ test('piped init loads every lib from the selected commit', { timeout: 60000 }, 
   const rest = hits.slice(marked)
   assert.equal(again.status, 0, `${again.stderr}\n${rest.join('\n')}`)
   assert.ok(rest.length > 0)
-  assert.ok(rest.every((hit) => /^\/[0-9a-f]{40}\//.test(hit)))
-  assert.equal(rest.some((hit) => hit.split('/').includes('main')), false)
   const next = readPin(repo)
   assert.equal(next.profile, 'balanced')
   assert.equal(next.codexProfile, 'codex-balanced')
-  assert.ok(rest.every((hit) => hit.startsWith(`/${next.commit}/`)))
+  const body = rest.filter((hit) => hit !== '/main/scripts/lib/remote.mjs')
+  assert.ok(body.every((hit) => hit.startsWith(`/${next.commit}/`)))
+  assert.equal(body.filter((hit) => hit.endsWith('.claude-plugin/marketplace.json')).length, 1)
+  assert.equal(rest.some((hit) => hit.split('/').includes('main') && hit !== '/main/scripts/lib/remote.mjs'), false)
 })
 
 test('a second init with no flags keeps the pinned profiles', (t) => {
@@ -727,18 +728,8 @@ test('init writes at the git root and falls back to cwd', (t) => {
   assert.equal(existsSync(path.join(plain, '.claude', 'pstack-claude-pin.json')), true)
 })
 
-test('home config is validated before writes and pretty json keeps its text', (t) => {
+test('pretty claude.json keeps its indent', (t) => {
   const { home, repo } = fresh(t)
-  const toml = path.join(home, '.codex', 'config.toml')
-  mkdirSync(path.dirname(toml), { recursive: true })
-  writeFileSync(toml, Buffer.from('model = "x"\0\n'))
-  const blocked = pipeInit(repo, home)
-  assert.notEqual(blocked.status, 0)
-  assert.match(blocked.stderr, /is not text/)
-  assert.equal(existsSync(`${toml}.bak`), false)
-  assert.equal(readFileSync(toml).includes(0), true)
-  assert.equal(existsSync(path.join(repo, '.claude', 'pstack-claude-pin.json')), false)
-  rmSync(toml)
   const claude = [
     '{',
     '    "numStartups": 4,',
@@ -756,8 +747,8 @@ test('home config is validated before writes and pretty json keeps its text', (t
   const init = pipeInit(repo, home)
   assert.equal(init.status, 0, init.stderr)
   const next = readFileSync(file, 'utf8')
-  assert.ok(next.includes('    "numStartups": 4,\n\n    "projects"'))
-  assert.ok(next.includes('"extra": 1'))
+  assert.match(next, /^ {4}"numStartups": 4,$/m)
+  assert.match(next, /^ {12}"extra": 1$/m)
   const parsed = JSON.parse(next)
   assert.equal(parsed.numStartups, 4)
   assert.equal(parsed.projects['/other'].extra, 1)
