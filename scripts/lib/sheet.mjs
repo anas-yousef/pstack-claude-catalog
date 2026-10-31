@@ -3,7 +3,7 @@ import { homedir } from 'node:os'
 import path from 'node:path'
 
 const EFFORTS = new Set(['low', 'medium', 'high', 'xhigh', 'max'])
-const SESSION_ROLE = 'feature, refactoring'
+const MAIN_SESSION = 'main session'
 
 function roleEntries(line) {
   const match = /^([a-z][^:\n]*):\s+(\S.*)$/.exec(line)
@@ -23,18 +23,17 @@ function roleEntries(line) {
 }
 
 export function sessionSettings(sheet) {
-  let feature = null
+  let session = null
   for (const line of sheet.split('\n')) {
     const role = roleEntries(line)
-    if (role?.name === SESSION_ROLE) feature = role
+    if (role?.name === MAIN_SESSION) session = role
   }
-  const listed = /^default effort:\s+(\S+)/m.exec(sheet)?.[1]
-  const effort = EFFORTS.has(listed) ? listed : feature?.efforts.find((level) => EFFORTS.has(level))
-  const slug = feature?.models[0]
-  return {
-    model: slug && slug !== 'inherit-parent' && slug !== 'auto' ? slug : undefined,
-    effort: EFFORTS.has(effort) ? effort : undefined,
-  }
+  if (!session) throw new Error('sheet has no main session row')
+  const slug = session.models[0]
+  const effort = session.efforts[0]
+  if (!slug || slug === 'inherit-parent' || slug === 'auto') throw new Error('main session row has no model')
+  if (!EFFORTS.has(effort)) throw new Error('main session row has no effort')
+  return { model: slug, effort }
 }
 
 export function agentsPaste(sheet) {
