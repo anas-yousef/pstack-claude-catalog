@@ -1,7 +1,7 @@
 {
   "name": "pstack-extras",
   "version": "1.2.0",
-  "description": "Skills that complement pstack. Pinned sources are cursor-team-kit, superpowers, mattpocock/skills, and addyosmani/agent-skills. Original skills are build-auto, committed-browser-proof, local-supabase, legacy-critique, prd, merge-reviews, and greenfield. /critique, /prd, /merge-reviews, /spec, and /build call those skills. greenfield runs the path from an old repo to build-auto. poteto-mode remains the entry point.",
+  "description": "Skills that complement pstack. Pinned sources are cursor-team-kit, superpowers, mattpocock/skills, addyosmani/agent-skills, vercel-labs/agent-skills, and supabase/agent-skills. Original skills are build-auto, committed-browser-proof, local-supabase, legacy-critique, prd, merge-reviews, and greenfield. /critique, /prd, /merge-reviews, /spec, and /build call those skills. greenfield runs the path from an old repo to build-auto. poteto-mode remains the entry point.",
   "commands": "./commands",
   "author": {
     "name": "Anas Yousef",

@@ -63,7 +63,30 @@
         "skills/documentation-and-adrs/": "plugins/pstack-extras/skills/documentation-and-adrs/",
         "skills/shipping-and-launch/": "plugins/pstack-extras/skills/shipping-and-launch/",
         "skills/doubt-driven-development/": "plugins/pstack-extras/skills/doubt-driven-development/",
+        "skills/performance-optimization/": "plugins/pstack-extras/skills/performance-optimization/",
+        "skills/frontend-ui-engineering/": "plugins/pstack-extras/skills/frontend-ui-engineering/",
+        "skills/browser-testing-with-devtools/": "plugins/pstack-extras/skills/browser-testing-with-devtools/",
+        "references/performance-checklist.md": "plugins/pstack-extras/references/performance-checklist.md",
+        "references/accessibility-checklist.md": "plugins/pstack-extras/references/accessibility-checklist.md",
         "LICENSE": "third-party/agent-skills/LICENSE"
+      }
+    },
+    {
+      "name": "vercel-agent-skills",
+      "repo": "https://github.com/vercel-labs/agent-skills",
+      "commit": "1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62",
+      "paths": {
+        "skills/react-best-practices/": "plugins/pstack-extras/skills/vercel-react-best-practices/"
+      }
+    },
+    {
+      "name": "supabase-agent-skills",
+      "repo": "https://github.com/supabase/agent-skills",
+      "commit": "c9be0e931b7930f7d02126d04774d904c381e7d7",
+      "paths": {
+        "skills/supabase/": "plugins/pstack-extras/skills/supabase/",
+        "skills/supabase-postgres-best-practices/": "plugins/pstack-extras/skills/supabase-postgres-best-practices/",
+        "LICENSE": "third-party/supabase-agent-skills/LICENSE"
       }
     }
   ]
