@@ -27,7 +27,7 @@ curl -fsSL https://raw.githubusercontent.com/anas-yousef/pstack-claude-catalog/m
 
 `--profile design-heavy-extra` also selects `codex-design-heavy-extra`. `--codex-profile` overrides that. `max` has no Codex sheet, so it uses `codex-balanced`.
 
-Claude applies the project allow rule for `node scripts/check-pstack.mjs` only after the workspace is trusted. Init sets `hasTrustDialogAccepted` for this repo in `~/.claude.json`.
+Claude applies `Bash(node scripts/check-pstack.mjs:*)` only after the workspace is trusted. The project block tells the agent to run exactly `node scripts/check-pstack.mjs`. Init sets `hasTrustDialogAccepted` for this repo in `~/.claude.json`.
 
 Codex reads `model` and `model_reasoning_effort` from the project's `.codex/config.toml` after that project is trusted. Init sets `trust_level = "trusted"` for this repo in `~/.codex/config.toml`.
 

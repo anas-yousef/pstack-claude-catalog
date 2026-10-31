@@ -39,7 +39,7 @@ const BEGIN = '<!-- pstack:begin -->'
 const END = '<!-- pstack:end -->'
 const BODY = [
   '@.claude/pstack-models.md',
-  'Model sheet: .claude/pstack-models.md. Run node scripts/check-pstack.mjs at session start and report pin vs main.',
+  'Model sheet: .claude/pstack-models.md. Run exactly node scripts/check-pstack.mjs at session start and report pin vs main.',
 ].join('\n')
 
 function readOrEmpty(file) {
