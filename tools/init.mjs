@@ -5,12 +5,13 @@
 //   node tools/init.mjs [--profile <name>] [--codex-profile <name>] [--commit <sha>]
 //
 // Writes .claude/pstack-claude-pin.json, copies scripts/setup-pstack-claude.mjs
-// and scripts/setup-pstack-codex.mjs with their helpers, and writes
-// .codex/config.toml with the pinned plugins enabled.
-// PSTACK_PROFILE selects the Claude profile when --profile is absent.
+// and scripts/setup-pstack-codex.mjs with their helpers, writes
+// .codex/config.toml with the pinned plugins enabled, then runs both setup
+// scripts in this repository. Each script prints `sheet ok` when its sheet
+// passes. PSTACK_PROFILE selects the Claude profile when --profile is absent.
 // Setup writes the chosen sheet's main session row, not a role row.
 
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import path from 'node:path'
@@ -19,6 +20,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const REPO = 'https://github.com/anas-yousef/pstack-claude-catalog'
 const DEFAULT_PROFILE = 'balanced'
 const DEFAULT_CODEX_PROFILE = 'codex-balanced'
+const SETUPS = [
+  'scripts/setup-pstack-claude.mjs',
+  'scripts/setup-pstack-codex.mjs',
+]
 const SHA = /^[0-9a-f]{40}$/
 const SLUG = /^[a-z0-9][a-z0-9-]*$/
 const USAGE = 'usage: node tools/init.mjs [--profile <name>] [--codex-profile <name>] [--commit <sha>]'
@@ -90,6 +95,27 @@ function parseArgs(argv) {
   if (!SLUG.test(profile) || !SLUG.test(codexProfile)) fail('profile names must be plain slugs')
   if (commit && !SHA.test(commit)) fail('commit must be 40 hex characters')
   return { profile, codexProfile, commit }
+}
+
+function runSetup(script, args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [script, ...args], { stdio: ['ignore', 'pipe', 'pipe'] })
+    const out = []
+    child.stdout.on('data', (chunk) => {
+      out.push(chunk)
+      process.stdout.write(chunk)
+    })
+    child.stderr.on('data', (chunk) => {
+      process.stderr.write(chunk)
+    })
+    child.on('error', reject)
+    child.on('close', (status) => {
+      const stdout = Buffer.concat(out).toString('utf8')
+      if (status !== 0) reject(new Error(`${path.basename(script)} exited ${status}`))
+      else if (!stdout.includes('sheet ok')) reject(new Error(`${path.basename(script)} sheet check failed`))
+      else resolve()
+    })
+  })
 }
 
 function mainSha() {
@@ -172,6 +198,10 @@ async function main() {
   const { codexTables } = await import(pathToFileURL(path.join(root, 'scripts/lib/codex-config.mjs')).href)
   const { writeMerged } = await import(pathToFileURL(path.join(root, 'scripts/lib/toml.mjs')).href)
   writeMerged(path.join(root, '.codex', 'config.toml'), { tables: codexTables(pin, marketplace.name) })
+  const setupArgs = ['--profile', profile, '--codex-profile', codexProfile]
+  for (const rel of SETUPS) {
+    await runSetup(path.join(root, rel), setupArgs)
+  }
 }
 
 main().catch((error) => fail(error.message || String(error)))
