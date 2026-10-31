@@ -7,6 +7,8 @@
 // Writes .claude/pstack-claude-pin.json, copies scripts/setup-pstack-claude.mjs
 // and scripts/setup-pstack-codex.mjs with their helpers, and writes
 // .codex/config.toml with the pinned plugins enabled.
+// PSTACK_PROFILE selects the Claude profile when --profile is absent.
+// Setup writes the chosen sheet's main session row, not a role row.
 
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -68,7 +70,8 @@ function catalogRoot() {
 }
 
 function parseArgs(argv) {
-  let profile = DEFAULT_PROFILE
+  const fromEnv = process.env.PSTACK_PROFILE
+  let profile = fromEnv ? fromEnv : DEFAULT_PROFILE
   let codexProfile = DEFAULT_CODEX_PROFILE
   let commit = ''
   for (let index = 0; index < argv.length; index += 1) {

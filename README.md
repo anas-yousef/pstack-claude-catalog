@@ -38,7 +38,7 @@ node scripts/setup-pstack-codex.mjs
 
 Init writes `.claude/pstack-claude-pin.json`, copies `scripts/setup-pstack-claude.mjs` and `scripts/setup-pstack-codex.mjs` with their helpers, and writes `.codex/config.toml`. The pin records this repository, the current `main` commit, profile `balanced`, Codex profile `codex-balanced`, and the marketplace plugins.
 
-Each setup command clones that commit into the cache directory outside the project and prints `sheet ok`. Claude setup writes `.claude/pstack-models.md`. When `CLAUDE.md` exists and has no `## pstack` heading, it appends one. The section includes `@.claude/pstack-models.md` unless that exact line is already anywhere in the file. When the project has no `CLAUDE.md`, Claude setup leaves that file uncreated and appends the same section to `AGENTS.md`. Codex setup writes the Codex sheet to `$CODEX_HOME/pstack-models.md`. When `CODEX_HOME` is unset, that path is `~/.codex/pstack-models.md`. It sets `model` and `model_reasoning_effort` in that home `config.toml`. `model` is the `feature, refactoring` slug from the sheet. `model_reasoning_effort` is the sheet's `default effort` when that value is `low`, `medium`, `high`, `xhigh`, or `max`. It pastes the role rows, the `default effort` line, and the minimum-effort line into `$CODEX_HOME/AGENTS.md` under `## pstack models`.
+Each setup command clones that commit into the cache directory outside the project and prints `sheet ok`. Claude setup writes `.claude/pstack-models.md`. When `CLAUDE.md` exists and has no `## pstack` heading, it appends one. The section includes `@.claude/pstack-models.md` unless that exact line is already anywhere in the file. When the project has no `CLAUDE.md`, Claude setup leaves that file uncreated and appends the same section to `AGENTS.md`. It also sets `model` and `effortLevel` in the repo's `.claude/settings.json` from that sheet's `main session` row. It keeps every other key, and it creates the file when the file is missing. Claude Code stores the session effort in `effortLevel`. That key accepts `low`, `medium`, `high`, and `xhigh`. Codex setup writes the Codex sheet to `$CODEX_HOME/pstack-models.md`. When `CODEX_HOME` is unset, that path is `~/.codex/pstack-models.md`. It sets `model` and `model_reasoning_effort` in that home `config.toml` from the sheet's `main session` row. The row names one model and one effort, as in `gpt-6.1-sol @high`. A role row does not set either value. Codex setup pastes the main session row, the role rows, the `default effort` line, and the minimum-effort line into `$CODEX_HOME/AGENTS.md` under `## pstack models`.
 
 `.codex/config.toml` in the project enables each pinned plugin and sets the marketplace `ref` to the pinned commit.
 
@@ -48,7 +48,7 @@ To pick another sheet or commit, pass flags after `node -`:
 curl -fsSL https://raw.githubusercontent.com/anas-yousef/pstack-claude-catalog/main/tools/init.mjs | node - --profile lean --codex-profile codex-lean --commit <sha>
 ```
 
-`--profile` and `--codex-profile` name files in `profiles/`. `--commit` is the 40-character id of a commit in this repository. The defaults are `balanced`, `codex-balanced`, and the current `main` commit.
+`--profile` and `--codex-profile` name files in `profiles/`. `PSTACK_PROFILE` selects the same Claude profile as `--profile` when the flag is absent. The flag wins when both are set. `--commit` is the 40-character id of a commit in this repository. The defaults are `balanced`, `codex-balanced`, and the current `main` commit. The profile you pick is the sheet setup copies, and setup writes the model and effort from that sheet's `main session` row.
 
 ## Existing repo
 
@@ -92,15 +92,15 @@ Codex reads `plugins/pstack/.codex-plugin/plugin.json` and `plugins/pstack-extra
 
 ## Model profiles
 
-pstack-claude reads its per-role models from a `pstack-models.md` sheet. With no sheet, every role runs on the defaults that `plugins/pstack/models.json` stamps into each skill. `profiles/` holds complete sheets with other mixes. Each role line names a model family and its own reasoning effort, as in `sonnet @high`, so two roles on the same model can run at different levels. Reasoning effort is how long the model thinks before it answers. A lower level spends fewer tokens per call.
+pstack-claude reads its per-role models from a `pstack-models.md` sheet. With no sheet, every role runs on the defaults that `plugins/pstack/models.json` stamps into each skill. `profiles/` holds complete sheets with other mixes. Each role line names a model family and its own reasoning effort, as in `sonnet @high`, so two roles on the same model can run at different levels. Reasoning effort is how long the model thinks before it answers. A lower level spends fewer tokens per call. The `main session` row is not a role. It names the model and effort for the session itself. Setup reads that row and does not read a role row for the session.
 
 | Profile | Mix |
 | --- | --- |
-| `balanced` | Opus for most roles, Sonnet for feature work and workers, Fable for the strongest judgment. `high` by default, `xhigh` for bug-fix, perf-issue, the why synthesizer, and judges. |
-| `design-heavy` | Opus at `high` for judgment and prose, the strongest judgment, and the Opus seat on architect runners, arena judges, and interrogate reviewers. Sonnet at `high` for feature work, refactoring, and workers. Opus at `high` for bug-fix and perf-issue. Other roles match `balanced`, including the other panel seats. |
-| `design-heavy-extra` | The `design-heavy` mix, with those Opus design seats at `xhigh`. Bug-fix and perf-issue stay Opus at `high`. |
-| `lean` | Sonnet and Haiku, with Opus only for the strongest judgment. Haiku explores at `medium`. Sonnet works at `high`, and at `xhigh` for bug-fix and perf-issue. |
-| `max` | Opus and Fable at `xhigh`, and at `max` for bug-fix, perf-issue, the strongest judgment, judges, and design. Exploration and workers stay at `high`. |
+| `balanced` | Opus for most roles, Sonnet for feature work and workers, Fable for the strongest judgment. `high` by default, `xhigh` for bug-fix, perf-issue, the why synthesizer, and judges. Main session is Sonnet at `high`. |
+| `design-heavy` | Opus at `high` for judgment and prose, the strongest judgment, and the Opus seat on architect runners, arena judges, and interrogate reviewers. Sonnet at `high` for feature work, refactoring, and workers. Opus at `high` for bug-fix and perf-issue. Other roles match `balanced`, including the other panel seats. Main session is Sonnet at `high`. |
+| `design-heavy-extra` | The `design-heavy` mix, with those Opus design seats at `xhigh`. Bug-fix and perf-issue stay Opus at `high`. Main session is Opus at `high`. |
+| `lean` | Sonnet and Haiku, with Opus only for the strongest judgment. Haiku explores at `medium`. Sonnet works at `high`, and at `xhigh` for bug-fix and perf-issue. Main session is Sonnet at `high`. |
+| `max` | Opus and Fable at `xhigh`, and at `max` for bug-fix, perf-issue, the strongest judgment, judges, and design. Exploration and workers stay at `high`. Main session is Sonnet at `high`. |
 
 A PRD or a spec has no role line. That prose uses `judgment and prose`.
 
@@ -114,16 +114,16 @@ The sheet states that it takes precedence over `<config>/pstack-models.md`, whic
 
 ### Codex profiles
 
-`profiles/codex-balanced.md`, `profiles/codex-design-heavy.md`, `profiles/codex-design-heavy-extra.md`, and `profiles/codex-lean.md` are Codex sheets. Codex installs a profile as `<codex-home>/pstack-models.md`. Paste the model rows, the `default effort` line, and the minimum-effort line into `<codex-home>/AGENTS.md`.
+`profiles/codex-balanced.md`, `profiles/codex-design-heavy.md`, `profiles/codex-design-heavy-extra.md`, and `profiles/codex-lean.md` are Codex sheets. Codex installs a profile as `<codex-home>/pstack-models.md`. Paste the main session row, the role rows, the `default effort` line, and the minimum-effort line into `<codex-home>/AGENTS.md`.
 
 | Profile | Mix |
 | --- | --- |
-| `codex-balanced` | Sol for feature work, exploration, and workers. Astra for bug-fix, perf, and judgment, at `high`, and at `xhigh` where a role hunts an unknown cause or judges. Terra is the third seat on the arena and interrogate panels. |
-| `codex-design-heavy` | Astra at `high` for judgment and prose, the strongest judgment, and the Astra seat on architect runners, arena judges, and interrogate reviewers. Sol at `high` for feature work, refactoring, and workers. Astra at `high` for bug-fix and perf-issue. Other roles match `codex-balanced`. |
-| `codex-design-heavy-extra` | The `codex-design-heavy` mix, with those Astra design seats at `xhigh`. Bug-fix and perf-issue stay Astra at `high`. |
-| `codex-lean` | Sol at `high` for each single-model role other than bug-fix, perf-issue, and the strongest judgment, which use Astra at `high`. Panels use Sol, Terra, and Luna. |
+| `codex-balanced` | Sol for feature work, exploration, and workers. Astra for bug-fix, perf, and judgment, at `high`, and at `xhigh` where a role hunts an unknown cause or judges. Terra is the third seat on the arena and interrogate panels. Main session is Sol (`gpt-6.1-sol`) at `high`. |
+| `codex-design-heavy` | Astra at `high` for judgment and prose, the strongest judgment, and the Astra seat on architect runners, arena judges, and interrogate reviewers. Sol at `high` for feature work, refactoring, and workers. Astra at `high` for bug-fix and perf-issue. Other roles match `codex-balanced`. Main session is Sol (`gpt-6.1-sol`) at `high`. |
+| `codex-design-heavy-extra` | The `codex-design-heavy` mix, with those Astra design seats at `xhigh`. Bug-fix and perf-issue stay Astra at `high`. Main session is Astra (`gpt-6-astra`) at `high`. |
+| `codex-lean` | Sol at `high` for each single-model role other than bug-fix, perf-issue, and the strongest judgment, which use Astra at `high`. Panels use Sol, Terra, and Luna. Main session is Sol (`gpt-6.1-sol`) at `high`. |
 
-Each Codex sheet includes `panel vendors: any`, because every Codex slug shares a `gpt-` prefix. Each sheet also says the effort on a role line is a minimum, and that subagents and the main session must not run below it. setup-pstack pastes the model rows and the `default effort` line into `<codex-home>/AGENTS.md`. Paste the minimum-effort line with them. `panel vendors: any` is outside that paste, so it stays in the sheet. Every profile must cover every role. This README is the only place that rule is recorded.
+Each Codex sheet includes `panel vendors: any`, because every Codex slug shares a `gpt-` prefix. Each sheet also says the effort on a role line is a minimum, and that subagents and the main session must not run below it. setup-pstack pastes the main session row, the role rows, and the `default effort` line into `<codex-home>/AGENTS.md`. Paste the minimum-effort line with them. `panel vendors: any` is outside that paste, so it stays in the sheet. Every profile must cover every role. This README is the only place that rule is recorded. The `main session` row is separate from those roles. Codex setup writes it to `model` and `model_reasoning_effort`.
 
 ## Update
 
