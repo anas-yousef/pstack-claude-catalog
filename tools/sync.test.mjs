@@ -44,6 +44,8 @@ function catalog(t) {
   writeFileSync(path.join(proof, 'SKILL.md'), 'proof-sentinel\n')
   writeFileSync(path.join(proof, 'notes.txt'), 'keep-me\n')
   mkdirSync(path.join(root, 'plugins', 'pstack-extras', '.claude-plugin'), { recursive: true })
+  mkdirSync(path.join(root, 'plugins', 'pstack-extras', '.codex-plugin'), { recursive: true })
+  writeFileSync(path.join(root, 'plugins', 'pstack-extras', '.codex-plugin', 'plugin.json'), 'codex-manifest-sentinel\n')
   mkdirSync(path.join(root, 'profiles'), { recursive: true })
   writeFileSync(path.join(root, 'profiles', 'lean.md'), 'profile-sentinel\n')
   writeFileSync(path.join(root, 'stray.txt'), 'stray\n')
@@ -338,6 +340,7 @@ test('a write at the pin is idempotent and keeps original files', (t) => {
   assert.equal(exists(root, 'stray.txt'), false)
   assert.equal(readFileSync(path.join(root, 'plugins/pstack-extras/skills/committed-browser-proof/SKILL.md'), 'utf8'), 'proof-sentinel\n')
   assert.equal(readFileSync(path.join(root, 'plugins/pstack-extras/skills/committed-browser-proof/notes.txt'), 'utf8'), 'keep-me\n')
+  assert.equal(readFileSync(path.join(root, 'plugins/pstack-extras/.codex-plugin/plugin.json'), 'utf8'), 'codex-manifest-sentinel\n')
   assert.equal(readFileSync(path.join(root, 'profiles/lean.md'), 'utf8'), 'profile-sentinel\n')
   const after = snapshot(root)
   const second = run(root, [])
@@ -368,6 +371,7 @@ test('--from writes the pin and rejects a checkout that is not the pin', (t) => 
   assert.equal(right.status, 0, right.stderr)
   assert.equal(readFileSync(path.join(root, 'plugins/pstack-extras/skills/foo/SKILL.md'), 'utf8'), 'v1\n')
   assert.equal(readFileSync(path.join(root, 'plugins/pstack-extras/skills/committed-browser-proof/SKILL.md'), 'utf8'), 'proof-sentinel\n')
+  assert.equal(readFileSync(path.join(root, 'plugins/pstack-extras/.codex-plugin/plugin.json'), 'utf8'), 'codex-manifest-sentinel\n')
 })
 
 function exists(root, rel) {

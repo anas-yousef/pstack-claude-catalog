@@ -11,7 +11,7 @@ A pinned Claude Code plugin marketplace. It holds [pstack-claude](https://github
   - from mattpocock/skills: `domain-modeling`, `writing-for-agents`, `wizard`, and `grilling`
   - from addyosmani/agent-skills: `spec-driven-development`, `planning-and-task-breakdown`, `incremental-implementation`, `documentation-and-adrs`, `shipping-and-launch`, and `doubt-driven-development`
 
-Original lean skills may live in `pstack-extras` for Cursor and Claude alignment when `plugins/pstack/` must stay byte for byte with pstack-claude. `committed-browser-proof`, `local-supabase`, `build-auto`, `legacy-critique`, `prd`, `merge-reviews`, and `greenfield` are on the `ORIGINAL` list in `tools/sync.mjs`, along with `plugins/pstack-extras/commands/`, so the next sync keeps them. For a greenfield product that needs a database, auth, or row-level security, use `local-supabase`.
+Original lean skills may live in `pstack-extras` for Cursor and Claude alignment when `plugins/pstack/` must stay byte for byte with pstack-claude. `committed-browser-proof`, `local-supabase`, `build-auto`, `legacy-critique`, `prd`, `merge-reviews`, and `greenfield` are on the `ORIGINAL` list in `tools/sync.mjs`, along with `plugins/pstack-extras/commands/` and `plugins/pstack-extras/.codex-plugin/`, so the next sync keeps them. For a greenfield product that needs a database, auth, or row-level security, use `local-supabase`.
 
 poteto-mode is the single entry point. For a product or a large feature, poteto-mode invokes `build-auto`. A product that starts from an old repo follows `greenfield` first. That skill runs `legacy-critique`, then `merge-reviews`, then `prd`, then `build-auto`. `/critique`, `/prd`, `/merge-reviews`, `/spec`, and `/build` are the Claude commands. Codex loads the skills. The commands are the Claude wrappers. `/build auto` approves the plan and runs every pending task.
 
@@ -30,6 +30,24 @@ claude plugin install pstack-extras@pstack-claude-catalog
 ```
 
 Do not also enable `pstack@pstack-claude` in the same project. Both plugins are named `pstack`, so they share the `pstack:` namespace, and Claude Code leaves out one of their hooks.
+
+Codex consumers register this repo as a marketplace, then enable both plugins with `codex plugin add`. From the checkout root:
+
+```sh
+codex plugin marketplace add .
+codex plugin add pstack@pstack-claude-catalog
+codex plugin add pstack-extras@pstack-claude-catalog
+```
+
+From GitHub, use the same plugin names:
+
+```sh
+codex plugin marketplace add anas-yousef/pstack-claude-catalog
+codex plugin add pstack@pstack-claude-catalog
+codex plugin add pstack-extras@pstack-claude-catalog
+```
+
+Codex reads `plugins/pstack/.codex-plugin/plugin.json` and `plugins/pstack-extras/.codex-plugin/plugin.json`. It loads each plugin's `skills/` directory. `pstack-extras` ships no Codex hooks.
 
 ## Model profiles
 

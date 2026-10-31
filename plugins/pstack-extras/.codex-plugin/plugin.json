@@ -1,0 +1,40 @@
+{
+  "name": "pstack-extras",
+  "version": "1.2.0",
+  "description": "Skills that complement pstack. Pinned sources are cursor-team-kit, superpowers, mattpocock/skills, and addyosmani/agent-skills. Original skills are build-auto, committed-browser-proof, local-supabase, legacy-critique, prd, merge-reviews, and greenfield. greenfield runs the path from an old repo to build-auto. poteto-mode remains the entry point. Codex loads these skills from ./skills/.",
+  "author": {
+    "name": "Anas Yousef",
+    "url": "https://github.com/anas-yousef"
+  },
+  "homepage": "https://github.com/anas-yousef/pstack-claude-catalog",
+  "repository": "https://github.com/anas-yousef/pstack-claude-catalog",
+  "license": "MIT",
+  "keywords": [
+    "pstack",
+    "pstack-extras",
+    "poteto-mode",
+    "skills",
+    "prd",
+    "greenfield",
+    "codex"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "pstack-extras",
+    "shortDescription": "Extra skills that complement pstack, including greenfield, prd, and legacy-critique",
+    "longDescription": "pstack-extras adds skills pstack does not ship. Vendored skills come from cursor-team-kit, superpowers, mattpocock/skills, and addyosmani/agent-skills. Original skills cover a greenfield path from an old repo through legacy-critique, merge-reviews, and prd into build-auto. poteto-mode stays the entry point. Codex loads the shared skills directory.",
+    "developerName": "Anas Yousef",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Run greenfield on this repository.",
+      "Write a PRD for this product."
+    ],
+    "websiteURL": "https://github.com/anas-yousef/pstack-claude-catalog",
+    "brandColor": "#0F766E"
+  }
+}

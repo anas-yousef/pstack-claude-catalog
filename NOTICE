@@ -3,6 +3,7 @@ Copyright (c) 2026 Anas Yousef. MIT License, see LICENSE.
 
 The root LICENSE covers original work only: README.md, NOTICE, sources.json,
 .claude-plugin/marketplace.json, plugins/pstack-extras/.claude-plugin/plugin.json,
+plugins/pstack-extras/.codex-plugin/plugin.json,
 plugins/pstack-extras/commands/, plugins/pstack-extras/skills/build-auto/,
 plugins/pstack-extras/skills/committed-browser-proof/,
 plugins/pstack-extras/skills/greenfield/,
