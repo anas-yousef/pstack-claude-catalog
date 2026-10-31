@@ -1,7 +1,12 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 
-const SHA = /^[0-9a-f]{40}$/
+export const SHA = /^[0-9a-f]{40}$/
+
+export function rawUrl(repo, commit, rel) {
+  if (process.env.PSTACK_RAW) return `${process.env.PSTACK_RAW}/${commit}/${rel}`
+  return `https://raw.githubusercontent.com/${githubSlug(repo)}/${commit}/${rel}`
+}
 
 export function githubSlug(repo) {
   const match = /^https:\/\/github\.com\/([^/]+\/[^/]+?)(?:\.git)?$/.exec(repo)
@@ -15,9 +20,12 @@ export async function catalogMain(repo) {
     headers: { 'User-Agent': 'pstack-claude-catalog' },
   })
   if (!response.ok) throw new Error(`cannot read main at ${repo}`)
-  const match = /([0-9a-f]{40}) refs\/heads\/main/.exec(await response.text())
-  if (!match || !SHA.test(match[1])) throw new Error(`no main commit at ${repo}`)
-  return match[1]
+  const text = await response.text()
+  const marker = ' refs/heads/main'
+  const at = text.indexOf(marker)
+  const sha = at >= 40 ? text.slice(at - 40, at) : ''
+  if (!SHA.test(sha)) throw new Error(`no main commit at ${repo}`)
+  return sha
 }
 
 export async function fetchCatalogText(repo, commit, rel) {
@@ -31,7 +39,7 @@ export async function fetchCatalogText(repo, commit, rel) {
       throw missing
     }
   }
-  const response = await fetch(`https://raw.githubusercontent.com/${githubSlug(repo)}/${commit}/${rel}`, {
+  const response = await fetch(rawUrl(repo, commit, rel), {
     headers: { 'User-Agent': 'pstack-claude-catalog' },
   })
   if (!response.ok) {

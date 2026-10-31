@@ -1,29 +1,27 @@
 #!/usr/bin/env node
 // curl -fsSL https://raw.githubusercontent.com/anas-yousef/pstack-claude-catalog/main/tools/init.mjs | node -
 
-import { spawn } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { pathToFileURL } from 'node:url'
 
 const REPO = 'https://github.com/anas-yousef/pstack-claude-catalog'
-const SHA = /^[0-9a-f]{40}$/
-const SLUG = /^[a-z0-9][a-z0-9-]*$/
 const USAGE = 'usage: node tools/init.mjs [--profile <name>] [--codex-profile <name>] [--commit <sha>]'
-const SETUPS = ['scripts/setup-pstack-claude.mjs', 'scripts/setup-pstack-codex.mjs']
+const LIBS = ['remote.mjs', 'pin.mjs', 'codex-config.mjs', 'sheet.mjs', 'toml.mjs', 'install.mjs']
 
 function fail(message) {
   process.stderr.write(`${message}\n`)
   process.exit(1)
 }
 
-function catalogRoot() {
-  if (process.env.PSTACK_CATALOG) return process.env.PSTACK_CATALOG
-  if (!import.meta.url.startsWith('file:')) return null
-  const file = fileURLToPath(import.meta.url)
-  if (path.basename(file) !== 'init.mjs') return null
-  return path.resolve(path.dirname(file), '..')
+function isSha(value) {
+  if (value.length !== 40) return false
+  for (const char of value) {
+    const code = char.charCodeAt(0)
+    if (!((code >= 48 && code <= 57) || (code >= 97 && code <= 102))) return false
+  }
+  return true
 }
 
 function parseArgs(argv) {
@@ -40,74 +38,97 @@ function parseArgs(argv) {
     if (arg === '--commit') commit = value.toLowerCase()
     index += 1
   }
-  if (!SLUG.test(profile) || (codexProfile && !SLUG.test(codexProfile))) fail('profile names must be plain slugs')
-  if (commit && !SHA.test(commit)) fail('commit must be 40 hex characters')
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(profile) || (codexProfile && !/^[a-z0-9][a-z0-9-]*$/.test(codexProfile))) {
+    fail('profile names must be plain slugs')
+  }
+  if (commit && !isSha(commit)) fail('commit must be 40 hex characters')
   return { profile, codexProfile, commit }
 }
 
-function codexName(profile, explicit) {
-  if (explicit) return explicit
-  return profile.startsWith('codex-') ? profile : `codex-${profile}`
+function rawBase() {
+  return process.env.PSTACK_RAW || 'https://raw.githubusercontent.com/anas-yousef/pstack-claude-catalog'
 }
 
-function runSetup(script) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [script], { stdio: 'inherit' })
-    child.on('error', reject)
-    child.on('close', (status) => (status === 0 ? resolve() : reject(new Error(`${path.basename(script)} exited ${status}`))))
-  })
-}
-
-async function load(name) {
-  const root = catalogRoot()
-  if (root) return import(pathToFileURL(path.join(root, 'scripts/lib', name)).href)
-  const dir = path.join(tmpdir(), 'pstack-init-libs')
-  mkdirSync(dir, { recursive: true })
-  const file = path.join(dir, name)
-  if (!existsSync(file)) {
-    const response = await fetch(`https://raw.githubusercontent.com/anas-yousef/pstack-claude-catalog/main/scripts/lib/${name}`)
-    if (!response.ok) fail(`cannot read scripts/lib/${name}`)
-    writeFileSync(file, await response.text())
+async function textAt(ref, rel) {
+  const response = await fetch(`${rawBase()}/${ref}/${rel}`, { headers: { 'User-Agent': 'pstack-claude-catalog' } })
+  if (!response.ok) {
+    const error = new Error(`cannot read ${rel} at ${ref}`)
+    error.status = response.status
+    throw error
   }
-  return import(pathToFileURL(file).href)
+  return response.text()
+}
+
+async function modules(ref) {
+  if (process.env.PSTACK_CATALOG) {
+    const base = pathToFileURL(path.join(process.env.PSTACK_CATALOG, 'scripts/lib/'))
+    return {
+      remote: await import(new URL('remote.mjs', base).href),
+      codex: await import(new URL('codex-config.mjs', base).href),
+      install: await import(new URL('install.mjs', base).href),
+      cleanup() {},
+    }
+  }
+  const dir = mkdtempSync(path.join(tmpdir(), 'pstack-'))
+  try {
+    for (const name of LIBS) writeFileSync(path.join(dir, name), await textAt(ref, `scripts/lib/${name}`))
+    const base = pathToFileURL(`${dir}/`)
+    return {
+      remote: await import(new URL('remote.mjs', base).href),
+      codex: await import(new URL('codex-config.mjs', base).href),
+      install: await import(new URL('install.mjs', base).href),
+      cleanup() {
+        rmSync(dir, { recursive: true, force: true })
+      },
+    }
+  } catch (error) {
+    rmSync(dir, { recursive: true, force: true })
+    throw error
+  }
+}
+
+async function oneSheet(remote, commit, name) {
+  try {
+    return await remote.fetchCatalogText(REPO, commit, `profiles/${name}.md`)
+  } catch (error) {
+    if (error.status === 404) return null
+    throw error
+  }
 }
 
 async function main() {
   const { profile, codexProfile: explicit, commit: requested } = parseArgs(process.argv.slice(2))
-  const remote = await load('remote.mjs')
-  const { marketplaceFrom } = await load('codex-config.mjs')
-  const commit = requested || await remote.catalogMain(REPO)
-  let codexProfile = codexName(profile, explicit)
+  const loaded = await modules(requested || 'main')
+  const { remote, codex, install } = loaded
   try {
-    await remote.fetchCatalogText(REPO, commit, `profiles/${profile}.md`)
-  } catch (error) {
-    if (error.status === 404) throw new Error(`no profile ${profile} at ${commit}`)
-    throw error
-  }
-  try {
-    await remote.fetchCatalogText(REPO, commit, `profiles/${codexProfile}.md`)
-  } catch (error) {
-    if (error.status === 404 && !explicit && codexProfile !== 'codex-balanced') {
+    const commit = requested || await remote.catalogMain(REPO)
+    const claudeSheet = await oneSheet(remote, commit, profile)
+    if (!claudeSheet) throw new Error(`no profile ${profile} at ${commit}`)
+    const derived = explicit || (profile.startsWith('codex-') ? profile : `codex-${profile}`)
+    let codexProfile = derived
+    let codexSheet = await oneSheet(remote, commit, derived)
+    if (!codexSheet && !explicit) {
       codexProfile = 'codex-balanced'
-      await remote.fetchCatalogText(REPO, commit, 'profiles/codex-balanced.md')
-    } else if (error.status === 404) throw new Error(`no profile ${codexProfile} at ${commit}`)
-    else throw error
+      codexSheet = await oneSheet(remote, commit, codexProfile)
+    }
+    if (!codexSheet) throw new Error(`no profile ${codexProfile} at ${commit}`)
+    const marketplace = codex.marketplaceFrom(await remote.fetchCatalogText(REPO, commit, '.claude-plugin/marketplace.json'))
+    const root = process.cwd()
+    const source = process.env.PSTACK_CATALOG
+    const owned = JSON.parse(source
+      ? readFileSync(path.join(source, 'scripts/lib/owned.json'), 'utf8')
+      : await textAt(commit, 'scripts/lib/owned.json'))
+    for (const rel of owned) {
+      mkdirSync(path.dirname(path.join(root, rel)), { recursive: true })
+      writeFileSync(path.join(root, rel), source ? readFileSync(path.join(source, rel)) : await textAt(commit, rel))
+    }
+    const pin = { repo: REPO, commit, profile, codexProfile, plugins: marketplace.plugins }
+    mkdirSync(path.join(root, '.claude'), { recursive: true })
+    writeFileSync(path.join(root, '.claude', 'pstack-claude-pin.json'), `${JSON.stringify(pin, null, 2)}\n`)
+    install.install(root, pin, claudeSheet, codexSheet, marketplace.name)
+  } finally {
+    loaded.cleanup()
   }
-  const source = catalogRoot()
-  const root = process.cwd()
-  const owned = JSON.parse(source
-    ? readFileSync(path.join(source, 'scripts/lib/owned.json'), 'utf8')
-    : await remote.fetchCatalogText(REPO, commit, 'scripts/lib/owned.json'))
-  for (const rel of owned) {
-    const target = path.join(root, rel)
-    mkdirSync(path.dirname(target), { recursive: true })
-    writeFileSync(target, source ? readFileSync(path.join(source, rel)) : await remote.fetchCatalogText(REPO, commit, rel))
-  }
-  const marketplace = marketplaceFrom(await remote.fetchCatalogText(REPO, commit, '.claude-plugin/marketplace.json'))
-  const pinPath = path.join(root, '.claude', 'pstack-claude-pin.json')
-  mkdirSync(path.dirname(pinPath), { recursive: true })
-  writeFileSync(pinPath, `${JSON.stringify({ repo: REPO, commit, profile, codexProfile, plugins: marketplace.plugins }, null, 2)}\n`)
-  for (const rel of SETUPS) await runSetup(path.join(root, rel))
 }
 
 main().catch((error) => fail(error.message || String(error)))

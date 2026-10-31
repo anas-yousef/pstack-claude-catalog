@@ -47,13 +47,76 @@ function nextTable(text, from = 0) {
   return -1
 }
 
+function tableName(headerLine) {
+  const code = headerLine.replace(/\s+#.*$/, '').trim()
+  const match = /^\[\[?\s*([^[\]]*?)\s*\]\]?$/.exec(code)
+  return match ? match[1].trim() : ''
+}
+
+function multilineCarry(line) {
+  let index = 0
+  let quote = ''
+  while (index < line.length) {
+    const char = line[index]
+    if (quote.length === 3) {
+      if (line.startsWith(quote, index)) {
+        quote = ''
+        index += 3
+        continue
+      }
+      index += 1
+      continue
+    }
+    if (quote) {
+      if (char === '\\' && quote === '"') {
+        index += 2
+        continue
+      }
+      if (char === quote) quote = ''
+      index += 1
+      continue
+    }
+    if (char === '#') return ''
+    if ((char === '"' || char === "'") && line.startsWith(char.repeat(3), index)) {
+      const closer = line.indexOf(char.repeat(3), index + 3)
+      if (closer === -1) return char.repeat(3)
+      index = closer + 3
+      continue
+    }
+    if (char === '"' || char === "'") {
+      quote = char
+      index += 1
+      continue
+    }
+    index += 1
+  }
+  return ''
+}
+
+function editableMask(lines) {
+  const mask = []
+  let open = ''
+  for (const line of lines) {
+    if (open) {
+      mask.push(false)
+      const at = line.indexOf(open)
+      open = at === -1 ? open : multilineCarry(line.slice(at + open.length))
+      continue
+    }
+    mask.push(true)
+    open = multilineCarry(line)
+  }
+  return mask
+}
+
 function setRoot(head, keys) {
   const lines = head.split('\n')
   if (head.endsWith('\n')) lines.pop()
+  const editable = editableMask(lines)
   for (const [key, value] of Object.entries(keys)) {
     const line = assignment(key, value)
     const pattern = new RegExp(`^${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*=`)
-    const index = lines.findIndex((item) => pattern.test(item.trim()))
+    const index = lines.findIndex((item, at) => editable[at] && pattern.test(item.trim()))
     if (index === -1) lines.push(line)
     else {
       const comment = lines[index].match(/(\s+#.*)$/)
@@ -79,7 +142,7 @@ function replaceTables(tail, tables) {
     next += tail.slice(cursor, start)
     const lineEnd = tail.indexOf('\n', start)
     const headerLine = tail.slice(start, lineEnd === -1 ? tail.length : lineEnd)
-    const name = headerLine.trim().replace(/^\[+/, '').replace(/\]+$/, '')
+    const name = tableName(headerLine)
     const nextHeader = nextTable(tail, lineEnd === -1 ? tail.length : lineEnd + 1)
     const blockEnd = nextHeader === -1 ? tail.length : nextHeader
     if (Object.hasOwn(tables, name)) {

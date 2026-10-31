@@ -1,5 +1,4 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
 const EFFORTS = new Set(['low', 'medium', 'high', 'xhigh', 'max'])
@@ -36,32 +35,12 @@ export function sessionSettings(sheet) {
   return { model: slug, effort }
 }
 
-export function agentsPaste(sheet) {
-  const lines = []
-  for (const line of sheet.split('\n')) {
-    if (/^default effort:\s+\S+/.test(line) || /^The effort listed for a role is a minimum\b/.test(line) || roleEntries(line)) {
-      lines.push(line)
-    }
-  }
-  return lines.join('\n')
-}
-
-export function copyProfile(checkout, name, dest) {
-  const source = path.join(checkout, 'profiles', `${name}.md`)
-  if (!existsSync(source)) throw new Error(`no profile ${name} in the pinned catalog`)
-  mkdirSync(path.dirname(dest), { recursive: true })
-  copyFileSync(source, dest)
-  return readFileSync(dest, 'utf8')
-}
-
-export function codexHome() {
-  return process.env.CODEX_HOME || path.join(homedir(), '.codex')
-}
-
 const BEGIN = '<!-- pstack:begin -->'
 const END = '<!-- pstack:end -->'
-const INCLUDE = '@.claude/pstack-models.md'
-const CHECK = 'node scripts/check-pstack.mjs'
+const BODY = [
+  '@.claude/pstack-models.md',
+  'Model sheet: .claude/pstack-models.md. Run node scripts/check-pstack.mjs at session start and report pin vs main.',
+].join('\n')
 
 function readOrEmpty(file) {
   try {
@@ -72,17 +51,8 @@ function readOrEmpty(file) {
   }
 }
 
-function headingSpan(text, heading) {
-  const lines = text.replace(/\n$/, '').split('\n')
-  const start = lines.indexOf(heading)
-  let end = lines.length
-  for (let index = start + 1; start !== -1 && index < lines.length; index += 1) {
-    if (lines[index].startsWith('## ')) {
-      end = index
-      break
-    }
-  }
-  return { lines, start, end }
+function isHeading(line) {
+  return /^#{1,6} /.test(line)
 }
 
 function writeText(file, current, next) {
@@ -91,23 +61,29 @@ function writeText(file, current, next) {
   writeFileSync(file, next)
 }
 
-export function putPstack(file) {
-  const current = readOrEmpty(file)
-  const bare = current.replace(/<!-- pstack:begin -->[\s\S]*?<!-- pstack:end -->\n?/, '')
-  const { lines, start, end } = headingSpan(bare, '## pstack')
-  const kept = (start === -1 ? lines : [...lines.slice(0, start), ...lines.slice(end)]).join('\n').replace(/\n{3,}/g, '\n\n')
-  const body = kept.split('\n').includes(INCLUDE) ? CHECK : `${INCLUDE}\n${CHECK}`
-  const block = `${BEGIN}\n${body}\n${END}\n`
-  const trimmed = kept.replace(/\s*$/, '')
-  writeText(file, current, trimmed === '' ? block : `${trimmed}\n\n${block}`)
+function markerBlock() {
+  return `${BEGIN}\n${BODY}\n${END}\n`
 }
 
-export function putSection(file, heading, body) {
+export function putPstack(file) {
   const current = readOrEmpty(file)
-  const block = `${heading}\n\n${body.trim()}\n`
-  const { lines, start, end } = headingSpan(current, heading)
-  const next = start === -1
-    ? (current === '' ? block : `${current.endsWith('\n') ? current : `${current}\n`}\n${block}`)
-    : `${[...lines.slice(0, start), ...block.replace(/\n$/, '').split('\n'), ...lines.slice(end)].join('\n')}\n`
-  writeText(file, current, next)
+  if (current.includes(BEGIN) && current.includes(END)) {
+    writeText(file, current, current.replace(/<!-- pstack:begin -->[\s\S]*?<!-- pstack:end -->\n?/, markerBlock()))
+    return
+  }
+  const lines = current.split('\n')
+  const start = lines.indexOf('## pstack')
+  let kept = current
+  if (start !== -1) {
+    let end = lines.length
+    for (let index = start + 1; index < lines.length; index += 1) {
+      if (isHeading(lines[index])) {
+        end = index
+        break
+      }
+    }
+    kept = [...lines.slice(0, start), ...lines.slice(end)].join('\n').replace(/\n{3,}/g, '\n\n')
+  }
+  const trimmed = kept.replace(/\s*$/, '')
+  writeText(file, current, trimmed === '' ? markerBlock() : `${trimmed}\n\n${markerBlock()}`)
 }

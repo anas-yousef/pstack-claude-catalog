@@ -27,41 +27,13 @@ curl -fsSL https://raw.githubusercontent.com/anas-yousef/pstack-claude-catalog/m
 
 `--profile design-heavy-extra` also selects `codex-design-heavy-extra`. `--codex-profile` overrides that. `max` has no Codex sheet, so it uses `codex-balanced`.
 
-Claude applies the project allow rule for `node scripts/check-pstack.mjs` only after the workspace is trusted. Codex reads `model` and `model_reasoning_effort` from the project's `.codex/config.toml` after that project is trusted. Inside Codex's read-only sandbox, `node scripts/check-pstack.mjs` has no network and prints `pin <sha> (offline: run outside the sandbox to compare)`.
+Claude applies the project allow rule for `node scripts/check-pstack.mjs` only after the workspace is trusted. Init sets `hasTrustDialogAccepted` for this repo in `~/.claude.json`.
+
+Codex reads `model` and `model_reasoning_effort` from the project's `.codex/config.toml` after that project is trusted. Init sets `trust_level = "trusted"` for this repo in `~/.codex/config.toml`.
+
+Inside Codex's read-only sandbox, `node scripts/check-pstack.mjs` has no network and prints `pin <sha> (offline: run outside the sandbox to compare)`.
 
 Run init again to refresh the copied scripts. Do not edit them.
-
-## Manual install
-
-Pin one commit of this repo in the project. Then clone that commit onto the machine and install the plugins from the clone:
-
-```sh
-git clone https://github.com/anas-yousef/pstack-claude-catalog ~/.claude/plugins/marketplaces/pstack-claude-catalog
-git -C ~/.claude/plugins/marketplaces/pstack-claude-catalog checkout --detach <commit>
-claude plugin marketplace add ~/.claude/plugins/marketplaces/pstack-claude-catalog
-claude plugin install pstack@pstack-claude-catalog
-claude plugin install pstack-extras@pstack-claude-catalog
-```
-
-Do not also enable `pstack@pstack-claude` in the same project. Both plugins are named `pstack`, so they share the `pstack:` namespace, and Claude Code leaves out one of their hooks.
-
-Codex consumers register this repo as a marketplace, then enable both plugins with `codex plugin add`. From the checkout root:
-
-```sh
-codex plugin marketplace add .
-codex plugin add pstack@pstack-claude-catalog
-codex plugin add pstack-extras@pstack-claude-catalog
-```
-
-From GitHub, use the same plugin names:
-
-```sh
-codex plugin marketplace add anas-yousef/pstack-claude-catalog
-codex plugin add pstack@pstack-claude-catalog
-codex plugin add pstack-extras@pstack-claude-catalog
-```
-
-Codex reads `plugins/pstack/.codex-plugin/plugin.json` and `plugins/pstack-extras/.codex-plugin/plugin.json`. It loads each plugin's `skills/` directory. `pstack-extras` ships no Codex hooks.
 
 ## Model profiles
 
@@ -77,17 +49,9 @@ pstack-claude reads its per-role models from a `pstack-models.md` sheet. With no
 
 A PRD or a spec has no role line. That prose uses `judgment and prose`.
 
-To use a Claude profile in a project, copy it to `.claude/pstack-models.md` and add this line to the project's `CLAUDE.md`, or `AGENTS.md` when there is no `CLAUDE.md`:
-
-```text
-@.claude/pstack-models.md
-```
-
-The sheet states that it takes precedence over `<config>/pstack-models.md`, which `/setup-pstack` writes. `balanced`, `design-heavy`, `design-heavy-extra`, `lean`, and `max` pass `plugins/pstack/skills/setup-pstack/scripts/check-sheet.sh`. To add a Claude mix, add one file to `profiles/` with every role line and a `Profile:` line, and run that check on it. `tools/sync.mjs` never writes or deletes `profiles/`, `scripts/`, or `tools/`.
-
 ### Codex profiles
 
-`profiles/codex-balanced.md`, `profiles/codex-design-heavy.md`, `profiles/codex-design-heavy-extra.md`, and `profiles/codex-lean.md` are Codex sheets. Init installs the chosen sheet as `<codex-home>/pstack-models.md` and writes its role lines into `<codex-home>/AGENTS.md`.
+`profiles/codex-balanced.md`, `profiles/codex-design-heavy.md`, `profiles/codex-design-heavy-extra.md`, and `profiles/codex-lean.md` are Codex sheets. Init reads the chosen sheet and writes its main session to `model` and `model_reasoning_effort` in the project's `.codex/config.toml`. The project `AGENTS.md` block keeps `@.claude/pstack-models.md` and names that sheet in plain text, so Codex can read it without a home copy.
 
 | Profile | Mix |
 | --- | --- |
@@ -96,7 +60,7 @@ The sheet states that it takes precedence over `<config>/pstack-models.md`, whic
 | `codex-design-heavy-extra` | The `codex-design-heavy` mix, with those Astra design seats at `xhigh`. Bug-fix and perf-issue stay Astra at `high`. Main session is Astra (`gpt-6-astra`) at `high`. |
 | `codex-lean` | Sol at `high` for each single-model role other than bug-fix, perf-issue, and the strongest judgment, which use Astra at `high`. Panels use Sol, Terra, and Luna. Main session is Sol (`gpt-6.1-sol`) at `high`. |
 
-Each Codex sheet includes `panel vendors: any`, because every Codex slug shares a `gpt-` prefix. Each sheet also says the effort on a role line is a minimum, and that subagents and the main session must not run below it. Init writes the main session row, the role rows, the `default effort` line, and the minimum-effort line into `<codex-home>/AGENTS.md`. `panel vendors: any` stays in the sheet. Every profile must cover every role. This README is the only place that rule is recorded. The `main session` row is separate from those roles. Init writes it to `model` and `model_reasoning_effort` in the project's `.codex/config.toml`.
+Each Codex sheet includes `panel vendors: any`, because every Codex slug shares a `gpt-` prefix. Each sheet also says the effort on a role line is a minimum, and that subagents and the main session must not run below it. `panel vendors: any` stays in the sheet. Every profile must cover every role. This README is the only place that rule is recorded. The `main session` row is separate from those roles. Init writes it to `model` and `model_reasoning_effort` in the project's `.codex/config.toml`.
 
 ## Update
 

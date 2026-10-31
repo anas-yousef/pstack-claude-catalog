@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
+import { SHA } from './remote.mjs'
 
-const SHA = /^[0-9a-f]{40}$/
 const SLUG = /^[a-z0-9][a-z0-9-]*$/
 
 export function readPin(root) {
