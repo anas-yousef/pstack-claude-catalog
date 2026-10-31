@@ -1,100 +1,132 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
-function quote(value) {
-  return `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`
-}
-
 function assignment(key, value) {
-  const rendered = typeof value === 'boolean' ? (value ? 'true' : 'false') : quote(value)
+  const rendered = typeof value === 'boolean' ? (value ? 'true' : 'false') : `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`
   return `${key} = ${rendered}`
 }
 
-function keyPattern(key) {
-  return new RegExp(`^${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*=`)
+function nextTable(text, from = 0) {
+  let mode = ''
+  let lineStart = from === 0 || text[from - 1] === '\n'
+  for (let index = from; index < text.length; index += 1) {
+    const char = text[index]
+    if (mode.length === 3) {
+      if (text.startsWith(mode, index)) {
+        mode = ''
+        index += 2
+      }
+      lineStart = char === '\n'
+      continue
+    }
+    if (mode) {
+      if (char === '\\' && mode === '"') index += 1
+      else if (char === mode) mode = ''
+      lineStart = char === '\n'
+      continue
+    }
+    if ((char === '"' || char === "'") && text.startsWith(char.repeat(3), index)) {
+      mode = char.repeat(3)
+      index += 2
+      lineStart = false
+      continue
+    }
+    if (char === '"' || char === "'") {
+      mode = char
+      lineStart = false
+      continue
+    }
+    if (char === '#') {
+      while (index < text.length && text[index] !== '\n') index += 1
+      lineStart = true
+      continue
+    }
+    if (lineStart && char === '[') return index
+    lineStart = char === '\n' || (lineStart && (char === ' ' || char === '\t'))
+  }
+  return -1
 }
 
-function linesOf(text) {
-  const normalized = String(text || '').replace(/\r\n/g, '\n')
-  const lines = normalized.split('\n')
-  if (normalized.endsWith('\n')) lines.pop()
-  return lines
-}
-
-function setKeys(block, entries) {
-  const next = block.slice()
-  let end = next.length
-  while (end > 0 && next[end - 1] === '') end -= 1
-  for (const [key, value] of Object.entries(entries)) {
+function setRoot(head, keys) {
+  const lines = head.split('\n')
+  if (head.endsWith('\n')) lines.pop()
+  for (const [key, value] of Object.entries(keys)) {
     const line = assignment(key, value)
-    const pattern = keyPattern(key)
-    const index = next.findIndex((item, at) => at < end && pattern.test(item))
-    if (index === -1) {
-      next.splice(end, 0, line)
-      end += 1
-    } else if (next[index] !== line) {
-      next[index] = line
+    const pattern = new RegExp(`^${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*=`)
+    const index = lines.findIndex((item) => pattern.test(item.trim()))
+    if (index === -1) lines.push(line)
+    else {
+      const comment = lines[index].match(/(\s+#.*)$/)
+      const rendered = comment ? `${line}${comment[1]}` : line
+      if (lines[index] !== rendered) lines[index] = rendered
     }
   }
-  return next
+  return lines.length === 0 ? '' : `${lines.join('\n')}\n`
 }
 
-export function editToml(text, spec = {}) {
-  const root = spec.root ?? {}
-  const tableSpec = spec.tables ?? {}
-  const lines = linesOf(text)
-  const splitAt = lines.findIndex((line) => /^\s*\[/.test(line))
-  const preamble = setKeys(splitAt === -1 ? lines : lines.slice(0, splitAt), root)
-  const body = splitAt === -1 ? [] : lines.slice(splitAt)
-  const chunks = []
-  const loose = []
-  let current = null
-  for (const line of body) {
-    const header = /^\s*\[([^\]\n]+)\]\s*$/.exec(line)
-    if (header) {
-      current = { name: header[1].trim(), lines: [line] }
-      chunks.push(current)
-    } else if (current) {
-      current.lines.push(line)
-    } else {
-      loose.push(line)
-    }
-  }
+function replaceTables(tail, tables) {
+  const names = Object.keys(tables)
+  if (names.length === 0) return tail
+  let cursor = 0
+  let next = ''
   const seen = new Set()
-  for (const chunk of chunks) {
-    const entries = tableSpec[chunk.name]
-    if (!entries) continue
-    seen.add(chunk.name)
-    const header = chunk.lines[0]
-    chunk.lines = [header, ...setKeys(chunk.lines.slice(1), entries)]
+  while (cursor < tail.length) {
+    const start = nextTable(tail, cursor)
+    if (start === -1) {
+      next += tail.slice(cursor)
+      break
+    }
+    next += tail.slice(cursor, start)
+    const lineEnd = tail.indexOf('\n', start)
+    const headerLine = tail.slice(start, lineEnd === -1 ? tail.length : lineEnd)
+    const name = headerLine.trim().replace(/^\[+/, '').replace(/\]+$/, '')
+    const nextHeader = nextTable(tail, lineEnd === -1 ? tail.length : lineEnd + 1)
+    const blockEnd = nextHeader === -1 ? tail.length : nextHeader
+    if (Object.hasOwn(tables, name)) {
+      const lines = [`[${name}]`]
+      for (const [key, value] of Object.entries(tables[name])) lines.push(assignment(key, value))
+      const trailing = tail.slice(start, blockEnd).match(/\n*$/)?.[0] ?? '\n'
+      next += `${lines.join('\n')}\n${trailing.slice(1)}`
+      seen.add(name)
+    } else {
+      next += tail.slice(start, blockEnd)
+    }
+    cursor = blockEnd
   }
-  const flat = preamble.slice()
-  const rest = [...loose, ...chunks.flatMap((chunk) => chunk.lines)]
-  if (rest.length > 0 && flat.length > 0 && flat[flat.length - 1] !== '') flat.push('')
-  flat.push(...rest)
-  for (const [name, entries] of Object.entries(tableSpec)) {
+  const extra = []
+  for (const name of names) {
     if (seen.has(name)) continue
-    if (flat.length > 0 && flat[flat.length - 1] !== '') flat.push('')
-    flat.push(`[${name}]`)
-    for (const [key, value] of Object.entries(entries)) flat.push(assignment(key, value))
+    const lines = [`[${name}]`]
+    for (const [key, value] of Object.entries(tables[name])) lines.push(assignment(key, value))
+    extra.push(lines.join('\n'))
   }
-  if (flat.length === 0) return ''
-  return `${flat.join('\n')}\n`
+  if (extra.length === 0) return next
+  if (next.length > 0 && !next.endsWith('\n')) next += '\n'
+  if (next.length > 0 && !next.endsWith('\n\n')) next += '\n'
+  return `${next}${extra.join('\n\n')}\n`
 }
 
-function readOrEmpty(file) {
+function readBytes(file) {
   try {
-    return readFileSync(file, 'utf8')
+    return readFileSync(file)
   } catch (error) {
-    if (error.code === 'ENOENT') return ''
+    if (error.code === 'ENOENT') return null
     throw error
   }
 }
 
-export function writeMerged(file, spec) {
-  const current = readOrEmpty(file)
-  const next = editToml(current, spec)
-  if (next === current) return
+export function writeConfig(file, spec = {}) {
+  const bytes = readBytes(file)
+  let text = ''
+  if (bytes && bytes.includes(0)) {
+    mkdirSync(path.dirname(file), { recursive: true })
+    writeFileSync(`${file}.bak`, bytes)
+    process.stdout.write(`backed up ${file} to ${file}.bak\n`)
+  } else if (bytes) text = bytes.toString('utf8')
+  const endAt = nextTable(text)
+  const end = endAt === -1 ? text.length : endAt
+  const next = setRoot(text.slice(0, end), spec.root ?? {}) + replaceTables(text.slice(end), spec.tables ?? {})
+  if (next === text) return
   mkdirSync(path.dirname(file), { recursive: true })
   writeFileSync(file, next)
 }

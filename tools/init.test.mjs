@@ -1,16 +1,19 @@
 import { spawnSync } from 'node:child_process'
-import { cpSync, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { fileURLToPath } from 'node:url'
-import { clonePinned } from '../scripts/lib/clone.mjs'
 import { readPin } from '../scripts/lib/pin.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const INIT = path.join(ROOT, 'tools', 'init.mjs')
 const MAIN = 'bfd48a1b300dbad50f6ea2e30f4a3edbe9737943'
+const CHECK_RULES = [
+  'Bash(node scripts/check-pstack.mjs)',
+  'Bash(node scripts/check-pstack.mjs *)',
+]
 
 function git(args, cwd) {
   const result = spawnSync('git', args, { cwd, encoding: 'utf8' })
@@ -33,7 +36,7 @@ function childEnv(home, extraEnv = {}) {
   const env = { ...process.env, HOME: home, ...extraEnv }
   delete env.XDG_CACHE_HOME
   delete env.CODEX_HOME
-  delete env.PSTACK_CATALOG
+  if (!Object.hasOwn(extraEnv, 'PSTACK_CATALOG')) delete env.PSTACK_CATALOG
   if (!Object.hasOwn(extraEnv, 'PSTACK_PROFILE')) delete env.PSTACK_PROFILE
   return env
 }
@@ -46,36 +49,36 @@ function pipeInit(repo, home, args = [], extraEnv = {}) {
   return spawnSync(process.execPath, ['-', ...args], {
     cwd: repo,
     encoding: 'utf8',
-    env: childEnv(home, extraEnv),
+    env: childEnv(home, { PSTACK_CATALOG: ROOT, ...extraEnv }),
     input: readFileSync(INIT),
-  })
-}
-
-function withHome(home, fn) {
-  const previousHome = process.env.HOME
-  const previousCache = process.env.XDG_CACHE_HOME
-  process.env.HOME = home
-  delete process.env.XDG_CACHE_HOME
-  try {
-    return fn()
-  } finally {
-    if (previousHome === undefined) delete process.env.HOME
-    else process.env.HOME = previousHome
-    if (previousCache === undefined) delete process.env.XDG_CACHE_HOME
-    else process.env.XDG_CACHE_HOME = previousCache
-  }
-}
-
-function installLocalProfiles(repo, home) {
-  withHome(home, () => {
-    const pin = readPin(repo)
-    clonePinned(pin)
-    cpSync(path.join(ROOT, 'profiles'), path.join(home, '.cache', 'pstack-claude-catalog', pin.commit, 'profiles'), { recursive: true })
   })
 }
 
 function settings(repo) {
   return JSON.parse(readFileSync(path.join(repo, '.claude', 'settings.json'), 'utf8'))
+}
+
+function walkFiles(dir, into) {
+  if (!existsSync(dir)) return
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === '.git' || entry.name === '.cache') continue
+    const full = path.join(dir, entry.name)
+    if (entry.isDirectory()) walkFiles(full, into)
+    else into.set(full, readFileSync(full))
+  }
+}
+
+function snapshot(repo, home) {
+  const into = new Map()
+  walkFiles(repo, into)
+  walkFiles(path.join(home, '.codex'), into)
+  walkFiles(path.join(repo, '.claude'), into)
+  return into
+}
+
+function assertSameBytes(left, right) {
+  assert.deepEqual([...right.keys()].sort(), [...left.keys()].sort())
+  for (const file of left.keys()) assert.equal(right.get(file).equals(left.get(file)), true, file)
 }
 
 function replaceLine(file, prefix, next) {
@@ -84,18 +87,21 @@ function replaceLine(file, prefix, next) {
   writeFileSync(file, lines.join('\n'))
 }
 
-function modelLines(home) {
-  const text = readFileSync(path.join(home, '.codex', 'config.toml'), 'utf8')
-  return text.split('\n').filter((line) => line.startsWith('model'))
+function modelLines(repo) {
+  const text = readFileSync(path.join(repo, '.codex', 'config.toml'), 'utf8')
+  const end = text.search(/^\[/m)
+  const head = end === -1 ? text : text.slice(0, end)
+  return head.split('\n').filter((line) => line.startsWith('model'))
 }
 
 test('a new repo installs both sheets and records the session model', (t) => {
   const { home, repo } = fresh(t)
   mkdirSync(path.join(home, '.codex'), { recursive: true })
-  writeFileSync(path.join(home, '.codex', 'config.toml'), 'model = "old-model"\nmodel_reasoning_effort = "low"\n\n[features]\nmulti_agent = true\n')
+  const homeBefore = '# kept\nmodel = "old-model"\nmodel_reasoning_effort = "low"\nsandbox_mode = "workspace-write"\n\n[features] # team\nmulti_agent = true\n\n[mcp_servers.local]\ncommand = "node"\n'
+  writeFileSync(path.join(home, '.codex', 'config.toml'), homeBefore)
   const init = pipeInit(repo, home)
   assert.equal(init.status, 0, init.stderr)
-  assert.equal(init.stdout, 'sheet ok\nsheet ok\n')
+  assert.equal(init.stdout, '')
   const pin = JSON.parse(readFileSync(path.join(repo, '.claude', 'pstack-claude-pin.json'), 'utf8'))
   assert.equal(pin.repo, 'https://github.com/anas-yousef/pstack-claude-catalog')
   assert.match(pin.commit, /^[0-9a-f]{40}$/)
@@ -106,22 +112,38 @@ test('a new repo installs both sheets and records the session model', (t) => {
 
   assert.equal(existsSync(path.join(repo, 'CLAUDE.md')), false)
   const agentsMd = readFileSync(path.join(repo, 'AGENTS.md'), 'utf8')
-  assert.equal((agentsMd.match(/^## pstack$/gm) || []).length, 1)
-  assert.equal((agentsMd.match(/^@\.claude\/pstack-models\.md$/gm) || []).length, 1)
-  assert.match(agentsMd, /@\.claude\/pstack-models\.md/)
+  assert.equal((agentsMd.match(/^## pstack$/gm) || []).length, 0)
+  assert.match(agentsMd, /<!-- pstack:begin -->\n@\.claude\/pstack-models\.md\nnode scripts\/check-pstack\.mjs\n<!-- pstack:end -->/)
   assert.doesNotMatch(agentsMd, /CLAUDE\.md/)
   assert.match(readFileSync(path.join(repo, '.claude', 'pstack-models.md'), 'utf8'), /^Profile: balanced\./m)
   assert.match(readFileSync(path.join(home, '.codex', 'pstack-models.md'), 'utf8'), /^Profile: codex-balanced\./m)
-  assert.equal(existsSync(path.join(home, '.cache', 'pstack-claude-catalog', pin.commit, 'profiles', 'balanced.md')), true)
   assert.equal(existsSync(path.join(repo, '.cache')), false)
 
-  const lines = modelLines(home)
+  const lines = modelLines(repo)
   console.log(`fresh-HOME config.toml\n${lines.join('\n')}`)
   assert.deepEqual(lines, ['model = "gpt-6.1-sol"', 'model_reasoning_effort = "high"'])
-  assert.deepEqual(settings(repo), { model: 'sonnet', effortLevel: 'high' })
+  assert.deepEqual(settings(repo), {
+    model: 'sonnet',
+    effortLevel: 'high',
+    permissions: { allow: CHECK_RULES },
+    extraKnownMarketplaces: {
+      'pstack-claude-catalog': {
+        source: { source: 'github', repo: 'anas-yousef/pstack-claude-catalog' },
+      },
+    },
+    enabledPlugins: {
+      'pstack@pstack-claude-catalog': true,
+      'pstack-extras@pstack-claude-catalog': true,
+    },
+  })
   const homeConfig = readFileSync(path.join(home, '.codex', 'config.toml'), 'utf8')
+  assert.equal(homeConfig, homeBefore)
   const repoSettings = readFileSync(path.join(repo, '.claude', 'settings.json'), 'utf8')
-  assert.match(homeConfig, /\[features\]\nmulti_agent = true/)
+  assert.match(homeConfig, /^# kept$/m)
+  assert.match(homeConfig, /^sandbox_mode = "workspace-write"$/m)
+  assert.match(homeConfig, /\[features\] # team\nmulti_agent = true/)
+  assert.equal((homeConfig.match(/\[features\]/g) || []).length, 1)
+  assert.match(homeConfig, /\[mcp_servers\.local\]\ncommand = "node"/)
   const homeAgents = readFileSync(path.join(home, '.codex', 'AGENTS.md'), 'utf8')
   assert.match(homeAgents, /^main session: gpt-6\.1-sol @high$/m)
   assert.match(homeAgents, /feature, refactoring: gpt-6\.1-sol @high/)
@@ -130,41 +152,45 @@ test('a new repo installs both sheets and records the session model', (t) => {
   assert.doesNotMatch(homeAgents, /panel vendors/)
   assert.doesNotMatch(agentsMd, /gpt-6/)
 
+  assert.deepEqual(readdirSync(path.join(repo, '.codex')).sort(), ['config.toml'])
   const projectConfig = readFileSync(path.join(repo, '.codex', 'config.toml'), 'utf8')
   assert.match(projectConfig, /\[plugins\."pstack@pstack-claude-catalog"\]\nenabled = true/)
   assert.match(projectConfig, /\[plugins\."pstack-extras@pstack-claude-catalog"\]\nenabled = true/)
   assert.match(projectConfig, new RegExp(`ref = "${pin.commit}"`))
 
-  const againClaude = run(repo, home, path.join(repo, 'scripts', 'setup-pstack-claude.mjs'))
-  const againCodex = run(repo, home, path.join(repo, 'scripts', 'setup-pstack-codex.mjs'))
-  assert.equal(againClaude.stdout, 'sheet ok\n')
-  assert.equal(againCodex.stdout, 'sheet ok\n')
+  const againClaude = run(repo, home, path.join(repo, 'scripts', 'setup-pstack-claude.mjs'), [], { PSTACK_CATALOG: ROOT })
+  const againCodex = run(repo, home, path.join(repo, 'scripts', 'setup-pstack-codex.mjs'), [], { PSTACK_CATALOG: ROOT })
+  assert.equal(againClaude.status, 0, againClaude.stderr)
+  assert.equal(againCodex.status, 0, againCodex.stderr)
+  assert.equal(againClaude.stdout, '')
+  assert.equal(againCodex.stdout, '')
   assert.equal(existsSync(path.join(repo, 'CLAUDE.md')), false)
   assert.equal(readFileSync(path.join(repo, 'AGENTS.md'), 'utf8'), agentsMd)
   assert.equal(readFileSync(path.join(home, '.codex', 'config.toml'), 'utf8'), homeConfig)
   assert.equal(readFileSync(path.join(repo, '.claude', 'settings.json'), 'utf8'), repoSettings)
-  assert.equal((agentsMd.match(/^## pstack$/gm) || []).length, 1)
+  assert.match(agentsMd, /node scripts\/check-pstack\.mjs/)
+  const before = snapshot(repo, home)
+  const second = pipeInit(repo, home)
+  assert.equal(second.status, 0, second.stderr)
+  assert.equal(second.stdout, '')
+  assertSameBytes(before, snapshot(repo, home))
 })
 
 test('an AGENTS.md-only repo gets one pstack section and no CLAUDE.md', (t) => {
   const { home, repo } = fresh(t)
   const agentsBefore = '# Agents\n\nKeep this.\n'
+  const marker = '<!-- pstack:begin -->\n@.claude/pstack-models.md\nnode scripts/check-pstack.mjs\n<!-- pstack:end -->\n'
   writeFileSync(path.join(repo, 'AGENTS.md'), agentsBefore)
   const init = pipeInit(repo, home)
   assert.equal(init.status, 0, init.stderr)
-  assert.match(init.stdout, /sheet ok/)
-  installLocalProfiles(repo, home)
+  assert.equal(init.stdout, '')
   const claude = run(repo, home, path.join(repo, 'scripts', 'setup-pstack-claude.mjs'))
   const codex = run(repo, home, path.join(repo, 'scripts', 'setup-pstack-codex.mjs'))
   assert.equal(claude.status, 0, claude.stderr)
   assert.equal(codex.status, 0, codex.stderr)
   assert.equal(existsSync(path.join(repo, 'CLAUDE.md')), false)
   const agentsMd = readFileSync(path.join(repo, 'AGENTS.md'), 'utf8')
-  assert.ok(agentsMd.startsWith(`${agentsBefore}\n## pstack\n`))
-  assert.equal((agentsMd.match(/^## pstack$/gm) || []).length, 1)
-  assert.match(agentsMd, /@\.claude\/pstack-models\.md/)
-  assert.match(agentsMd, /setup-pstack-claude\.mjs/)
-  assert.match(agentsMd, /Codex loads role models/)
+  assert.equal(agentsMd, `${agentsBefore}\n${marker}`)
   assert.doesNotMatch(agentsMd, /CLAUDE\.md/)
 
   const reversedRepo = mkdtempSync(path.join(tmpdir(), 'pstack-repo-'))
@@ -174,13 +200,7 @@ test('an AGENTS.md-only repo gets one pstack section and no CLAUDE.md', (t) => {
   assert.equal(run(reversedRepo, home, INIT).status, 0)
   assert.equal(run(reversedRepo, home, path.join(reversedRepo, 'scripts', 'setup-pstack-codex.mjs')).status, 0)
   assert.equal(run(reversedRepo, home, path.join(reversedRepo, 'scripts', 'setup-pstack-claude.mjs')).status, 0)
-  assert.equal(existsSync(path.join(reversedRepo, 'CLAUDE.md')), false)
   assert.equal(readFileSync(path.join(reversedRepo, 'AGENTS.md'), 'utf8'), agentsMd)
-
-  assert.equal(run(repo, home, path.join(repo, 'scripts', 'setup-pstack-claude.mjs')).stdout, 'sheet ok\n')
-  assert.equal(run(repo, home, path.join(repo, 'scripts', 'setup-pstack-codex.mjs')).stdout, 'sheet ok\n')
-  assert.equal(existsSync(path.join(repo, 'CLAUDE.md')), false)
-  assert.equal(readFileSync(path.join(repo, 'AGENTS.md'), 'utf8'), agentsMd)
 })
 
 test('an AGENTS.md include near the top stays the only include line', (t) => {
@@ -189,17 +209,14 @@ test('an AGENTS.md include near the top stays the only include line', (t) => {
   writeFileSync(path.join(repo, 'AGENTS.md'), agentsBefore)
   const init = pipeInit(repo, home)
   assert.equal(init.status, 0, init.stderr)
-  assert.match(init.stdout, /sheet ok/)
-  installLocalProfiles(repo, home)
+  assert.equal(init.stdout, '')
   const claude = run(repo, home, path.join(repo, 'scripts', 'setup-pstack-claude.mjs'))
   assert.equal(claude.status, 0, claude.stderr)
-  assert.equal(claude.stdout, 'sheet ok\n')
+  assert.equal(claude.stdout, '')
   assert.equal(existsSync(path.join(repo, 'CLAUDE.md')), false)
   const agentsMd = readFileSync(path.join(repo, 'AGENTS.md'), 'utf8')
-  assert.ok(agentsMd.startsWith(`${agentsBefore}\n## pstack\n`))
   assert.equal((agentsMd.match(/^@\.claude\/pstack-models\.md$/gm) || []).length, 1)
-  assert.equal((agentsMd.match(/^## pstack$/gm) || []).length, 1)
-  assert.match(agentsMd, /setup-pstack-claude\.mjs/)
+  assert.match(agentsMd, /<!-- pstack:begin -->\nnode scripts\/check-pstack\.mjs\n<!-- pstack:end -->/)
   const again = run(repo, home, path.join(repo, 'scripts', 'setup-pstack-claude.mjs'))
   assert.equal(again.status, 0, again.stderr)
   assert.equal(readFileSync(path.join(repo, 'AGENTS.md'), 'utf8'), agentsMd)
@@ -219,53 +236,68 @@ test('an existing repo keeps its docs and product skills', (t) => {
   writeFileSync(other, 'other skill\n')
   mkdirSync(path.join(repo, '.codex'), { recursive: true })
   writeFileSync(path.join(repo, '.codex', 'config.toml'), '[features]\nmulti_agent = true\n')
-  writeFileSync(path.join(repo, '.claude', 'settings.json'), `${JSON.stringify({ permissions: { allow: ['Bash'] }, model: 'old' }, null, 2)}\n`)
+  writeFileSync(path.join(repo, '.claude', 'settings.json'), `${JSON.stringify({
+    theme: 'dark',
+    permissions: { allow: ['Bash'], deny: ['Bash(rm *)'] },
+    model: 'old',
+    extraKnownMarketplaces: { other: { source: { source: 'github', repo: 'acme/tools', ref: 'v1' } } },
+  }, null, 2)}\n`)
 
   const init = pipeInit(repo, home)
   assert.equal(init.status, 0, init.stderr)
-  assert.match(init.stdout, /sheet ok/)
-  installLocalProfiles(repo, home)
+  assert.equal(init.stdout, '')
   const claude = run(repo, home, path.join(repo, 'scripts', 'setup-pstack-claude.mjs'))
   const codex = run(repo, home, path.join(repo, 'scripts', 'setup-pstack-codex.mjs'))
-  assert.equal(claude.stdout, 'sheet ok\n')
-  assert.equal(codex.stdout, 'sheet ok\n')
+  assert.equal(claude.status, 0, claude.stderr)
+  assert.equal(codex.status, 0, codex.stderr)
 
   const claudeMd = readFileSync(path.join(repo, 'CLAUDE.md'), 'utf8')
   const agentsMd = readFileSync(path.join(repo, 'AGENTS.md'), 'utf8')
-  assert.ok(claudeMd.startsWith('# Product\n\nKeep this.\n\n## pstack\n'))
-  assert.ok(agentsMd.startsWith('# Agents\n\nKeep this too.\n\n## pstack\n'))
+  const marker = '<!-- pstack:begin -->\n@.claude/pstack-models.md\nnode scripts/check-pstack.mjs\n<!-- pstack:end -->\n'
+  assert.ok(claudeMd.endsWith(`\n\n${marker}`))
+  assert.ok(agentsMd.endsWith(`\n\n${marker}`))
   assert.doesNotMatch(claudeMd, /AGENTS\.md/)
   assert.doesNotMatch(agentsMd, /CLAUDE\.md/)
+  assert.doesNotMatch(claudeMd, /This repo pins/)
+  assert.doesNotMatch(agentsMd, /This repo pins/)
   assert.equal(readFileSync(skill, 'utf8'), 'product skill\n')
   assert.equal(readFileSync(other, 'utf8'), 'other skill\n')
   const projectConfig = readFileSync(path.join(repo, '.codex', 'config.toml'), 'utf8')
   assert.match(projectConfig, /\[features\]\nmulti_agent = true/)
   assert.match(projectConfig, /enabled = true/)
-  const lines = modelLines(home)
-  console.log(`existing-repo fresh-HOME config.toml\n${lines.join('\n')}`)
+  const lines = modelLines(repo)
+  console.log(`existing-repo project config.toml\n${lines.join('\n')}`)
   assert.deepEqual(lines, ['model = "gpt-6.1-sol"', 'model_reasoning_effort = "high"'])
   const parsed = settings(repo)
   assert.equal(parsed.model, 'sonnet')
   assert.equal(parsed.effortLevel, 'high')
-  assert.deepEqual(parsed.permissions, { allow: ['Bash'] })
+  assert.equal(parsed.theme, 'dark')
+  assert.deepEqual(parsed.permissions.deny, ['Bash(rm *)'])
+  assert.equal(parsed.permissions.allow[0], 'Bash')
+  for (const rule of CHECK_RULES) assert.ok(parsed.permissions.allow.includes(rule), rule)
+  assert.equal(parsed.extraKnownMarketplaces.other.source.ref, 'v1')
+  assert.equal(parsed.extraKnownMarketplaces['pstack-claude-catalog'].source.repo, 'anas-yousef/pstack-claude-catalog')
+  assert.equal(parsed.extraKnownMarketplaces['pstack-claude-catalog'].source.ref, undefined)
+  assert.equal(parsed.enabledPlugins['pstack@pstack-claude-catalog'], true)
   const repoSettings = readFileSync(path.join(repo, '.claude', 'settings.json'), 'utf8')
 
   assert.equal(run(repo, home, INIT).status, 0)
-  assert.equal(run(repo, home, path.join(repo, 'scripts', 'setup-pstack-claude.mjs')).stdout, 'sheet ok\n')
-  assert.equal(run(repo, home, path.join(repo, 'scripts', 'setup-pstack-codex.mjs')).stdout, 'sheet ok\n')
+  assert.equal(run(repo, home, path.join(repo, 'scripts', 'setup-pstack-claude.mjs')).status, 0)
+  assert.equal(run(repo, home, path.join(repo, 'scripts', 'setup-pstack-codex.mjs')).status, 0)
   assert.equal(readFileSync(path.join(repo, 'CLAUDE.md'), 'utf8'), claudeMd)
   assert.equal(readFileSync(path.join(repo, 'AGENTS.md'), 'utf8'), agentsMd)
   assert.equal(readFileSync(path.join(repo, '.codex', 'config.toml'), 'utf8'), projectConfig)
   assert.equal(readFileSync(path.join(repo, '.claude', 'settings.json'), 'utf8'), repoSettings)
   assert.equal(readFileSync(skill, 'utf8'), 'product skill\n')
-  assert.equal((claudeMd.match(/^## pstack$/gm) || []).length, 1)
+  assert.equal((claudeMd.match(/^## pstack$/gm) || []).length, 0)
+  assert.match(claudeMd, /^## Product$|^# Product$/m)
 })
 
 test('flags select the pin and a bad profile writes nothing', (t) => {
   const { home, repo } = fresh(t)
   const selected = run(repo, home, INIT, ['--profile', 'lean', '--codex-profile', 'codex-lean', '--commit', MAIN])
   assert.equal(selected.status, 0, selected.stderr)
-  assert.match(selected.stdout, /sheet ok/)
+  assert.equal(selected.stdout, '')
   const pin = JSON.parse(readFileSync(path.join(repo, '.claude', 'pstack-claude-pin.json'), 'utf8'))
   assert.equal(pin.profile, 'lean')
   assert.equal(pin.codexProfile, 'codex-lean')
@@ -309,80 +341,189 @@ test('design-heavy-extra writes opus and astra for the main session', (t) => {
   const { home, repo } = fresh(t)
   const selected = pipeInit(repo, home, ['--profile', 'design-heavy-extra', '--codex-profile', 'codex-design-heavy-extra'], { PSTACK_PROFILE: 'lean' })
   assert.equal(selected.status, 0, selected.stderr)
-  assert.equal(selected.stdout, 'sheet ok\nsheet ok\n')
+  assert.equal(selected.stdout, '')
   const pin = JSON.parse(readFileSync(path.join(repo, '.claude', 'pstack-claude-pin.json'), 'utf8'))
   assert.equal(pin.profile, 'design-heavy-extra')
   assert.equal(pin.codexProfile, 'codex-design-heavy-extra')
-  assert.deepEqual(settings(repo), { model: 'opus', effortLevel: 'high' })
-  assert.deepEqual(modelLines(home), ['model = "gpt-6-astra"', 'model_reasoning_effort = "high"'])
+  assert.equal(settings(repo).model, 'opus')
+  assert.equal(settings(repo).effortLevel, 'high')
+  assert.deepEqual(modelLines(repo), ['model = "gpt-6-astra"', 'model_reasoning_effort = "high"'])
 })
 
 test('PSTACK_PROFILE switches the Claude main session', (t) => {
   const { home, repo } = fresh(t)
   const selected = pipeInit(repo, home, [], { PSTACK_PROFILE: 'design-heavy-extra' })
   assert.equal(selected.status, 0, selected.stderr)
-  assert.match(selected.stdout, /sheet ok/)
+  assert.equal(selected.stdout, '')
   const pin = JSON.parse(readFileSync(path.join(repo, '.claude', 'pstack-claude-pin.json'), 'utf8'))
   assert.equal(pin.profile, 'design-heavy-extra')
-  assert.equal(pin.codexProfile, 'codex-balanced')
-  assert.deepEqual(settings(repo), { model: 'opus', effortLevel: 'high' })
-  assert.deepEqual(modelLines(home), ['model = "gpt-6.1-sol"', 'model_reasoning_effort = "high"'])
+  assert.equal(pin.codexProfile, 'codex-design-heavy-extra')
+  assert.equal(settings(repo).model, 'opus')
+  assert.equal(settings(repo).effortLevel, 'high')
+  assert.deepEqual(modelLines(repo), ['model = "gpt-6-astra"', 'model_reasoning_effort = "high"'])
 })
 
 test('a role row edit does not change the main session', (t) => {
   const { home, repo } = fresh(t)
-  const init = run(repo, home, INIT)
+  const catalog = mkdtempSync(path.join(tmpdir(), 'pstack-cat-'))
+  t.after(() => rmSync(catalog, { recursive: true, force: true }))
+  cpSync(path.join(ROOT, 'profiles'), path.join(catalog, 'profiles'), { recursive: true })
+  cpSync(path.join(ROOT, 'scripts'), path.join(catalog, 'scripts'), { recursive: true })
+  mkdirSync(path.join(catalog, '.claude-plugin'), { recursive: true })
+  cpSync(path.join(ROOT, '.claude-plugin', 'marketplace.json'), path.join(catalog, '.claude-plugin', 'marketplace.json'))
+  replaceLine(path.join(catalog, 'profiles', 'balanced.md'), 'feature, refactoring:', 'feature, refactoring: haiku @low')
+  replaceLine(path.join(catalog, 'profiles', 'codex-balanced.md'), 'feature, refactoring:', 'feature, refactoring: gpt-6-luna @low')
+  const init = pipeInit(repo, home, [], { PSTACK_CATALOG: catalog })
   assert.equal(init.status, 0, init.stderr)
-  assert.match(init.stdout, /sheet ok/)
-  installLocalProfiles(repo, home)
-  assert.equal(run(repo, home, path.join(repo, 'scripts', 'setup-pstack-claude.mjs')).status, 0)
-  assert.equal(run(repo, home, path.join(repo, 'scripts', 'setup-pstack-codex.mjs')).status, 0)
-  const pin = readPin(repo)
-  const dir = path.join(home, '.cache', 'pstack-claude-catalog', pin.commit, 'profiles')
-  replaceLine(path.join(dir, 'balanced.md'), 'feature, refactoring:', 'feature, refactoring: haiku @low')
-  replaceLine(path.join(dir, 'balanced.md'), 'default effort:', 'default effort: low')
-  replaceLine(path.join(dir, 'codex-balanced.md'), 'feature, refactoring:', 'feature, refactoring: gpt-6-luna @low')
-  replaceLine(path.join(dir, 'codex-balanced.md'), 'default effort:', 'default effort: low')
-  assert.equal(run(repo, home, path.join(repo, 'scripts', 'setup-pstack-claude.mjs')).status, 0)
-  assert.equal(run(repo, home, path.join(repo, 'scripts', 'setup-pstack-codex.mjs')).status, 0)
   assert.match(readFileSync(path.join(repo, '.claude', 'pstack-models.md'), 'utf8'), /^feature, refactoring: haiku @low$/m)
   assert.match(readFileSync(path.join(home, '.codex', 'pstack-models.md'), 'utf8'), /^feature, refactoring: gpt-6-luna @low$/m)
-  assert.deepEqual(settings(repo), { model: 'sonnet', effortLevel: 'high' })
-  assert.deepEqual(modelLines(home), ['model = "gpt-6.1-sol"', 'model_reasoning_effort = "high"'])
+  assert.equal(settings(repo).model, 'sonnet')
+  assert.equal(settings(repo).effortLevel, 'high')
+  assert.deepEqual(modelLines(repo), ['model = "gpt-6.1-sol"', 'model_reasoning_effort = "high"'])
 })
-
-function seedBrokenSession(home, commit) {
-  const dest = path.join(home, '.cache', 'pstack-claude-catalog', commit)
-  const blank = path.join(home, '.cache', 'pstack-claude-catalog', 'gitconfig')
-  mkdirSync(dest, { recursive: true })
-  writeFileSync(blank, '')
-  const env = childEnv(home)
-  for (const key of Object.keys(env)) {
-    if (key === 'GIT_CONFIG_COUNT' || key.startsWith('GIT_CONFIG_KEY_') || key.startsWith('GIT_CONFIG_VALUE_') || key === 'GH_TOKEN' || key === 'GITHUB_TOKEN') {
-      delete env[key]
-    }
-  }
-  env.GIT_TERMINAL_PROMPT = '0'
-  env.GIT_CONFIG_GLOBAL = blank
-  env.GIT_CONFIG_SYSTEM = blank
-  env.GIT_CONFIG_NOSYSTEM = '1'
-  const gitIn = (args) => {
-    const result = spawnSync('git', args, { cwd: dest, env, encoding: 'utf8' })
-    assert.equal(result.status, 0, result.stderr || result.stdout)
-  }
-  gitIn(['init', '-q'])
-  gitIn(['fetch', '-q', '--depth', '1', 'https://github.com/anas-yousef/pstack-claude-catalog.git', commit])
-  gitIn(['checkout', '-q', '--detach', 'FETCH_HEAD'])
-  const sheet = path.join(dest, 'profiles', 'balanced.md')
-  const text = readFileSync(sheet, 'utf8').split('\n').filter((line) => !line.startsWith('main session:')).join('\n')
-  writeFileSync(sheet, text.endsWith('\n') ? text : `${text}\n`)
-}
 
 test('a sheet without a main session row makes init exit non-zero', (t) => {
   const { home, repo } = fresh(t)
-  seedBrokenSession(home, MAIN)
-  const init = pipeInit(repo, home, ['--commit', MAIN])
+  const catalog = mkdtempSync(path.join(tmpdir(), 'pstack-cat-'))
+  t.after(() => rmSync(catalog, { recursive: true, force: true }))
+  cpSync(path.join(ROOT, 'profiles'), path.join(catalog, 'profiles'), { recursive: true })
+  cpSync(path.join(ROOT, 'scripts'), path.join(catalog, 'scripts'), { recursive: true })
+  mkdirSync(path.join(catalog, '.claude-plugin'), { recursive: true })
+  cpSync(path.join(ROOT, '.claude-plugin', 'marketplace.json'), path.join(catalog, '.claude-plugin', 'marketplace.json'))
+  const sheet = path.join(catalog, 'profiles', 'balanced.md')
+  writeFileSync(sheet, readFileSync(sheet, 'utf8').split('\n').filter((line) => !line.startsWith('main session:')).join('\n'))
+  const init = pipeInit(repo, home, [], { PSTACK_CATALOG: catalog })
   assert.notEqual(init.status, 0)
-  assert.doesNotMatch(init.stdout, /sheet ok/)
   assert.match(init.stderr, /main session/)
+})
+
+test('user toml survives root edits byte for byte', (t) => {
+  const { home, repo } = fresh(t)
+  const tail = [
+    '"quoted key" = "keep"',
+    '',
+    'story = """',
+    'alpha',
+    'beta',
+    '"""',
+    '',
+    '[mcp_servers.x]',
+    'args = [',
+    '  "--flag",',
+    '  "value",',
+    ']',
+    '',
+  ].join('\n')
+  mkdirSync(path.join(repo, '.codex'), { recursive: true })
+  writeFileSync(path.join(repo, '.codex', 'config.toml'), `model = "old" # mine\n\n${tail}`)
+  const homeFile = path.join(home, '.codex', 'config.toml')
+  mkdirSync(path.dirname(homeFile), { recursive: true })
+  writeFileSync(homeFile, tail)
+  const init = pipeInit(repo, home)
+  assert.equal(init.status, 0, init.stderr)
+  const project = readFileSync(path.join(repo, '.codex', 'config.toml'), 'utf8')
+  const mcp = tail.slice(tail.indexOf('[mcp_servers.x]'))
+  assert.ok(project.includes('"quoted key" = "keep"\n'))
+  assert.ok(project.includes('story = """\nalpha\nbeta\n"""\n'))
+  assert.ok(project.includes(mcp))
+  assert.match(project, /^model = "gpt-6\.1-sol" # mine$/m)
+  assert.equal(readFileSync(homeFile, 'utf8'), tail)
+  assert.equal(existsSync(`${homeFile}.bak`), false)
+  const projectFile = path.join(repo, '.codex', 'config.toml')
+  assert.equal(existsSync(`${projectFile}.bak`), false)
+  const saved = readFileSync(projectFile, 'utf8')
+  const again = pipeInit(repo, home)
+  assert.equal(again.status, 0, again.stderr)
+  assert.equal(readFileSync(projectFile, 'utf8'), saved)
+})
+
+test('profile flags pair the codex sheet unless one is named', (t) => {
+  const { home, repo } = fresh(t)
+  const paired = pipeInit(repo, home, ['--profile', 'lean'], { PSTACK_PROFILE: 'max' })
+  assert.equal(paired.status, 0, paired.stderr)
+  const pin = JSON.parse(readFileSync(path.join(repo, '.claude', 'pstack-claude-pin.json'), 'utf8'))
+  assert.equal(pin.profile, 'lean')
+  assert.equal(pin.codexProfile, 'codex-lean')
+  const { home: maxHome, repo: maxRepo } = fresh(t)
+  const maxed = pipeInit(maxRepo, maxHome, [], { PSTACK_PROFILE: 'max' })
+  assert.equal(maxed.status, 0, maxed.stderr)
+  const maxPin = JSON.parse(readFileSync(path.join(maxRepo, '.claude', 'pstack-claude-pin.json'), 'utf8'))
+  assert.equal(maxPin.profile, 'max')
+  assert.equal(maxPin.codexProfile, 'codex-balanced')
+  const { home: overHome, repo: overRepo } = fresh(t)
+  const over = pipeInit(overRepo, overHome, ['--codex-profile', 'codex-lean'], { PSTACK_PROFILE: 'design-heavy-extra' })
+  assert.equal(over.status, 0, over.stderr)
+  const overPin = JSON.parse(readFileSync(path.join(overRepo, '.claude', 'pstack-claude-pin.json'), 'utf8'))
+  assert.equal(overPin.profile, 'design-heavy-extra')
+  assert.equal(overPin.codexProfile, 'codex-lean')
+  assert.deepEqual(modelLines(overRepo), ['model = "gpt-6.1-sol"', 'model_reasoning_effort = "high"'])
+})
+
+test('check reports drift and stays quiet offline', (t) => {
+  const { home, repo } = fresh(t)
+  const init = pipeInit(repo, home)
+  assert.equal(init.status, 0, init.stderr)
+  const gitDir = path.join(repo, '.git')
+  assert.equal(spawnSync('chmod', ['-R', 'a-w', gitDir]).status, 0)
+  try {
+    const check = run(repo, home, path.join(repo, 'scripts', 'check-pstack.mjs'))
+    assert.equal(check.status, 0, check.stderr)
+    assert.match(check.stdout, /^pin [0-9a-f]{40} catalog [0-9a-f]{40} current\n$/)
+    const pinPath = path.join(repo, '.claude', 'pstack-claude-pin.json')
+    const pin = JSON.parse(readFileSync(pinPath, 'utf8'))
+    pin.commit = MAIN
+    writeFileSync(pinPath, `${JSON.stringify(pin, null, 2)}\n`)
+    const drift = run(repo, home, path.join(repo, 'scripts', 'check-pstack.mjs'))
+    assert.equal(drift.status, 1)
+    assert.match(drift.stdout, new RegExp(`^pin ${MAIN} catalog [0-9a-f]{40} outdated\\n$`))
+    pin.repo = 'https://github.com/anas-yousef/not-a-real-catalog-offline'
+    pin.commit = MAIN
+    writeFileSync(pinPath, `${JSON.stringify(pin, null, 2)}\n`)
+    const offline = run(repo, home, path.join(repo, 'scripts', 'check-pstack.mjs'))
+    assert.equal(offline.status, 0, offline.stderr)
+    assert.equal(offline.stdout, `pin ${MAIN} (offline: run outside the sandbox to compare)\n`)
+  } finally {
+    spawnSync('chmod', ['-R', 'u+w', gitDir])
+  }
+})
+
+test('a broken settings file is replaced and an old heading is migrated', (t) => {
+  const { home, repo } = fresh(t)
+  mkdirSync(path.join(repo, '.claude'), { recursive: true })
+  const settingsFile = path.join(repo, '.claude', 'settings.json')
+  writeFileSync(path.join(repo, 'AGENTS.md'), '# Notes\n\n## pstack\n\nold prose\n\n## Keep me\n\nyes\n')
+  const catalog = mkdtempSync(path.join(tmpdir(), 'pstack-cat-'))
+  t.after(() => rmSync(catalog, { recursive: true, force: true }))
+  cpSync(path.join(ROOT, 'profiles'), path.join(catalog, 'profiles'), { recursive: true })
+  cpSync(path.join(ROOT, 'scripts'), path.join(catalog, 'scripts'), { recursive: true })
+  mkdirSync(path.join(catalog, '.claude-plugin'), { recursive: true })
+  cpSync(path.join(ROOT, '.claude-plugin', 'marketplace.json'), path.join(catalog, '.claude-plugin', 'marketplace.json'))
+  const sheet = path.join(catalog, 'profiles', 'balanced.md')
+  writeFileSync(sheet, readFileSync(sheet, 'utf8').replace('main session: sonnet @high', 'main session: sonnet @max'))
+  writeFileSync(settingsFile, `${JSON.stringify({ model: 'old', effortLevel: 'xhigh' }, null, 2)}\n`)
+  const init = pipeInit(repo, home, [], { PSTACK_CATALOG: catalog })
+  assert.equal(init.status, 0, init.stderr)
+  const parsed = settings(repo)
+  assert.equal(parsed.model, 'sonnet')
+  assert.equal(Object.hasOwn(parsed, 'effortLevel'), false)
+  const agents = readFileSync(path.join(repo, 'AGENTS.md'), 'utf8')
+  assert.match(agents, /<!-- pstack:begin -->/)
+  assert.match(agents, /## Keep me\n\nyes\n/)
+  assert.equal((agents.match(/^## pstack$/gm) || []).length, 0)
+})
+
+test('truncated settings are backed up', (t) => {
+  const { home, repo } = fresh(t)
+  mkdirSync(path.join(repo, '.claude'), { recursive: true })
+  const settings = path.join(repo, '.claude', 'settings.json')
+  writeFileSync(settings, '{')
+  const init = pipeInit(repo, home)
+  assert.equal(init.status, 0, init.stderr)
+  assert.ok(init.stdout.includes(`backed up ${settings} to ${settings}.bak`))
+  assert.equal(readFileSync(`${settings}.bak`, 'utf8'), '{')
+  assert.equal(JSON.parse(readFileSync(settings, 'utf8')).model, 'sonnet')
+  const again = pipeInit(repo, home)
+  assert.equal(again.status, 0, again.stderr)
+  assert.equal(again.stdout, '')
+  assert.equal(readFileSync(`${settings}.bak`, 'utf8'), '{')
 })
