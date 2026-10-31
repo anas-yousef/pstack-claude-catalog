@@ -38,7 +38,7 @@ node scripts/setup-pstack-codex.mjs
 
 Init writes `.claude/pstack-claude-pin.json`, copies `scripts/setup-pstack-claude.mjs` and `scripts/setup-pstack-codex.mjs` with their helpers, and writes `.codex/config.toml`. The pin records this repository, the current `main` commit, profile `balanced`, Codex profile `codex-balanced`, and the marketplace plugins.
 
-Each setup command clones that commit into the cache directory outside the project and prints `sheet ok`. Claude setup writes `.claude/pstack-models.md`. When `CLAUDE.md` has no `## pstack` heading, it appends one that includes `@.claude/pstack-models.md`. Codex setup writes the Codex sheet to `$CODEX_HOME/pstack-models.md`. When `CODEX_HOME` is unset, that path is `~/.codex/pstack-models.md`. It sets `model` and `model_reasoning_effort` in that home `config.toml`. `model` is the `feature, refactoring` slug from the sheet. `model_reasoning_effort` is the sheet's `default effort` when that value is `low`, `medium`, `high`, `xhigh`, or `max`. It pastes the role rows, the `default effort` line, and the minimum-effort line into `$CODEX_HOME/AGENTS.md` under `## pstack models`.
+Each setup command clones that commit into the cache directory outside the project and prints `sheet ok`. Claude setup writes `.claude/pstack-models.md`. When `CLAUDE.md` exists and has no `## pstack` heading, it appends one that includes `@.claude/pstack-models.md`. When the project has no `CLAUDE.md`, Claude setup leaves that file uncreated and appends the same section to `AGENTS.md`. Codex setup writes the Codex sheet to `$CODEX_HOME/pstack-models.md`. When `CODEX_HOME` is unset, that path is `~/.codex/pstack-models.md`. It sets `model` and `model_reasoning_effort` in that home `config.toml`. `model` is the `feature, refactoring` slug from the sheet. `model_reasoning_effort` is the sheet's `default effort` when that value is `low`, `medium`, `high`, `xhigh`, or `max`. It pastes the role rows, the `default effort` line, and the minimum-effort line into `$CODEX_HOME/AGENTS.md` under `## pstack models`.
 
 `.codex/config.toml` in the project enables each pinned plugin and sets the marketplace `ref` to the pinned commit.
 
@@ -54,9 +54,9 @@ curl -fsSL https://raw.githubusercontent.com/anas-yousef/pstack-claude-catalog/m
 
 Run the same commands from the root of a repository that already has history. Run them again when you want that same end state.
 
-Init leaves an existing `CLAUDE.md` and an existing `AGENTS.md` in place. Claude setup appends a short `## pstack` section to `CLAUDE.md` only when that heading is missing. Codex setup appends a short `## pstack` section to `AGENTS.md` only when that heading is missing. Each file stands alone.
+Init leaves an existing `CLAUDE.md` and an existing `AGENTS.md` in place. When `CLAUDE.md` exists, Claude setup appends a short `## pstack` section there only when that heading is missing. Codex setup appends its own `## pstack` section to `AGENTS.md` only when that heading is missing. When there is no `CLAUDE.md`, Claude setup does not create one. It appends its `## pstack` section to `AGENTS.md` instead. Codex setup adds its sentence to that same section. `AGENTS.md` keeps one `## pstack` heading. Neither file names the other.
 
-Setup writes the sheet, the advisory heading, and the Codex home model lines. It leaves every other project file alone, including skills the product already has. A second run keeps the same `CLAUDE.md`, the same `AGENTS.md`, and the same model lines.
+Setup writes the sheet, the advisory heading, and the Codex home model lines. It leaves every other project file alone, including skills the product already has. A second run keeps the same `AGENTS.md` and the same model lines. When `CLAUDE.md` already existed, that file stays the same too.
 
 ## Manual install
 
@@ -104,7 +104,7 @@ pstack-claude reads its per-role models from a `pstack-models.md` sheet. With no
 
 A PRD or a spec has no role line. That prose uses `judgment and prose`.
 
-To use a Claude profile in a project, copy it to `.claude/pstack-models.md` and add this line to the project's `CLAUDE.md`:
+To use a Claude profile in a project, copy it to `.claude/pstack-models.md` and add this line to the project's `CLAUDE.md`, or `AGENTS.md` when there is no `CLAUDE.md`:
 
 ```text
 @.claude/pstack-models.md

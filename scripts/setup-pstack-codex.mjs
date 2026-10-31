@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
-import { appendSection, replaceSection } from './lib/advisory.mjs'
+import { appendSection, ensureSectionParagraph, replaceSection } from './lib/advisory.mjs'
 import { clonePinned } from './lib/clone.mjs'
 import { codexTables } from './lib/codex-config.mjs'
 import { readPin } from './lib/pin.mjs'
@@ -24,7 +24,9 @@ try {
   const marketplace = JSON.parse(readFileSync(path.join(checkout, '.claude-plugin', 'marketplace.json'), 'utf8'))
   if (!marketplace || typeof marketplace.name !== 'string' || marketplace.name === '') throw new Error('pinned marketplace.json needs a name')
   writeMerged(path.join(root, '.codex', 'config.toml'), { tables: codexTables(pin, marketplace.name) })
-  appendSection(path.join(root, 'AGENTS.md'), '## pstack', AGENTS_ADVISORY)
+  const agentsFile = path.join(root, 'AGENTS.md')
+  if (existsSync(path.join(root, 'CLAUDE.md'))) appendSection(agentsFile, '## pstack', AGENTS_ADVISORY)
+  else ensureSectionParagraph(agentsFile, '## pstack', AGENTS_ADVISORY)
   replaceSection(path.join(home, 'AGENTS.md'), '## pstack models', agentsPaste(sheet))
   process.stdout.write('sheet ok\n')
 } catch (error) {

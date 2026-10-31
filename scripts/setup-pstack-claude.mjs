@@ -1,6 +1,7 @@
 #!/usr/bin/env node
+import { existsSync } from 'node:fs'
 import path from 'node:path'
-import { appendSection } from './lib/advisory.mjs'
+import { appendSection, ensureSectionParagraph } from './lib/advisory.mjs'
 import { clonePinned } from './lib/clone.mjs'
 import { readPin } from './lib/pin.mjs'
 import { copyProfile } from './lib/sheet.mjs'
@@ -16,7 +17,9 @@ try {
   const pin = readPin(root)
   const checkout = clonePinned(pin)
   copyProfile(checkout, pin.profile, path.join(root, '.claude', 'pstack-models.md'))
-  appendSection(path.join(root, 'CLAUDE.md'), '## pstack', CLAUDE_ADVISORY)
+  const claudeFile = path.join(root, 'CLAUDE.md')
+  if (existsSync(claudeFile)) appendSection(claudeFile, '## pstack', CLAUDE_ADVISORY)
+  else ensureSectionParagraph(path.join(root, 'AGENTS.md'), '## pstack', CLAUDE_ADVISORY, true)
   process.stdout.write('sheet ok\n')
 } catch (error) {
   process.stderr.write(`${error.message}\n`)
