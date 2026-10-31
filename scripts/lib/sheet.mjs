@@ -58,8 +58,10 @@ export function codexHome() {
   return process.env.CODEX_HOME || path.join(homedir(), '.codex')
 }
 
-const MODEL_INCLUDE = '@.claude/pstack-models.md'
-const CHECK_COMMAND = 'node scripts/check-pstack.mjs'
+const BEGIN = '<!-- pstack:begin -->'
+const END = '<!-- pstack:end -->'
+const INCLUDE = '@.claude/pstack-models.md'
+const CHECK = 'node scripts/check-pstack.mjs'
 
 function readOrEmpty(file) {
   try {
@@ -70,35 +72,42 @@ function readOrEmpty(file) {
   }
 }
 
-function sectionEnd(lines, start) {
-  for (let index = start + 1; index < lines.length; index += 1) {
-    if (lines[index].startsWith('## ')) return index
+function headingSpan(text, heading) {
+  const lines = text.replace(/\n$/, '').split('\n')
+  const start = lines.indexOf(heading)
+  let end = lines.length
+  for (let index = start + 1; start !== -1 && index < lines.length; index += 1) {
+    if (lines[index].startsWith('## ')) {
+      end = index
+      break
+    }
   }
-  return lines.length
+  return { lines, start, end }
 }
 
-export function pstackBlock(file) {
-  const lines = readOrEmpty(file).replace(/\n$/, '').split('\n')
-  const start = lines.indexOf('## pstack')
-  const end = start === -1 ? lines.length : sectionEnd(lines, start)
-  const outside = start === -1 ? lines : [...lines.slice(0, start), ...lines.slice(end)]
-  if (outside.includes(MODEL_INCLUDE)) return CHECK_COMMAND
-  return `${MODEL_INCLUDE}\n${CHECK_COMMAND}`
+function writeText(file, current, next) {
+  if (next === current) return
+  mkdirSync(path.dirname(file), { recursive: true })
+  writeFileSync(file, next)
+}
+
+export function putPstack(file) {
+  const current = readOrEmpty(file)
+  const bare = current.replace(/<!-- pstack:begin -->[\s\S]*?<!-- pstack:end -->\n?/, '')
+  const { lines, start, end } = headingSpan(bare, '## pstack')
+  const kept = (start === -1 ? lines : [...lines.slice(0, start), ...lines.slice(end)]).join('\n').replace(/\n{3,}/g, '\n\n')
+  const body = kept.split('\n').includes(INCLUDE) ? CHECK : `${INCLUDE}\n${CHECK}`
+  const block = `${BEGIN}\n${body}\n${END}\n`
+  const trimmed = kept.replace(/\s*$/, '')
+  writeText(file, current, trimmed === '' ? block : `${trimmed}\n\n${block}`)
 }
 
 export function putSection(file, heading, body) {
   const current = readOrEmpty(file)
   const block = `${heading}\n\n${body.trim()}\n`
-  const lines = current === '' ? [] : current.replace(/\n$/, '').split('\n')
-  const start = lines.indexOf(heading)
-  let next
-  if (start === -1) {
-    next = current === '' ? block : `${current.endsWith('\n') ? current : `${current}\n`}\n${block}`
-  } else {
-    const merged = [...lines.slice(0, start), ...block.replace(/\n$/, '').split('\n'), ...lines.slice(sectionEnd(lines, start))]
-    next = `${merged.join('\n')}\n`
-  }
-  if (next === current) return
-  mkdirSync(path.dirname(file), { recursive: true })
-  writeFileSync(file, next)
+  const { lines, start, end } = headingSpan(current, heading)
+  const next = start === -1
+    ? (current === '' ? block : `${current.endsWith('\n') ? current : `${current}\n`}\n${block}`)
+    : `${[...lines.slice(0, start), ...block.replace(/\n$/, '').split('\n'), ...lines.slice(end)].join('\n')}\n`
+  writeText(file, current, next)
 }
