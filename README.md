@@ -59,13 +59,24 @@ pstack-claude reads its per-role models from a `pstack-models.md` sheet. With no
 | `lean` | Sonnet and Haiku, with Opus only for the strongest judgment. Haiku explores at `medium`. Sonnet works at `high`, and at `xhigh` for bug-fix and perf-issue. |
 | `max` | Opus and Fable at `xhigh`, and at `max` for bug-fix, perf-issue, the strongest judgment, judges, and design. Exploration and workers stay at `high`. |
 
-To use a profile in a project, copy it to `.claude/pstack-models.md` and add this line to the project's `CLAUDE.md`:
+To use a Claude profile in a project, copy it to `.claude/pstack-models.md` and add this line to the project's `CLAUDE.md`:
 
 ```text
 @.claude/pstack-models.md
 ```
 
-The sheet states that it takes precedence over `<config>/pstack-models.md`, which `/setup-pstack` writes. Each profile passes `plugins/pstack/skills/setup-pstack/scripts/check-sheet.sh`. To add a mix, add one file to `profiles/` with every role line and a `Profile:` line, and run that check on it. `tools/sync.mjs` never writes or deletes `profiles/`.
+The sheet states that it takes precedence over `<config>/pstack-models.md`, which `/setup-pstack` writes. `balanced`, `lean`, and `max` pass `plugins/pstack/skills/setup-pstack/scripts/check-sheet.sh`. To add a Claude mix, add one file to `profiles/` with every role line and a `Profile:` line, and run that check on it. `tools/sync.mjs` never writes or deletes `profiles/`.
+
+### Codex profiles
+
+`profiles/codex-balanced.md` and `profiles/codex-lean.md` are Codex sheets. Codex installs a profile as `<codex-home>/pstack-models.md`. Paste the model rows and the `default effort` line into `<codex-home>/AGENTS.md`.
+
+| Profile | Mix |
+| --- | --- |
+| `codex-balanced` | Sol for feature work, exploration, and workers. Astra for bug-fix, perf, and judgment, at `high`, and at `xhigh` where a role hunts an unknown cause or judges. Terra is the third seat on the arena and interrogate panels. |
+| `codex-lean` | Sol at `high` for each single-model role other than bug-fix, perf-issue, and the strongest judgment, which use Astra at `high`. Panels use Sol, Terra, and Luna. |
+
+Codex slugs share a `gpt-` prefix, so `check-sheet.sh` reports one vendor for each panel. These sheets have no `panel vendors` line. Every profile must cover every role. This README is the only place that rule is recorded.
 
 ## Update
 
