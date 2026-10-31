@@ -14,6 +14,27 @@ function keyPattern(key) {
   return new RegExp(`^${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*=`)
 }
 
+function splitComment(line) {
+  let quote = ''
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index]
+    if (quote) {
+      if (char === '\\' && quote === '"') {
+        index += 1
+        continue
+      }
+      if (char === quote) quote = ''
+      continue
+    }
+    if (char === '"' || char === "'") {
+      quote = char
+      continue
+    }
+    if (char === '#') return { code: line.slice(0, index).trimEnd(), comment: line.slice(index).trim() }
+  }
+  return { code: line.trimEnd(), comment: '' }
+}
+
 function linesOf(text) {
   const normalized = String(text || '').replace(/\r\n/g, '\n')
   const lines = normalized.split('\n')
@@ -28,12 +49,14 @@ function setKeys(block, entries) {
   for (const [key, value] of Object.entries(entries)) {
     const line = assignment(key, value)
     const pattern = keyPattern(key)
-    const index = next.findIndex((item, at) => at < end && pattern.test(item))
+    const index = next.findIndex((item, at) => at < end && pattern.test(splitComment(item).code.trim()))
     if (index === -1) {
       next.splice(end, 0, line)
       end += 1
-    } else if (next[index] !== line) {
-      next[index] = line
+    } else {
+      const { comment } = splitComment(next[index])
+      const rendered = comment ? `${line} ${comment}` : line
+      if (next[index] !== rendered) next[index] = rendered
     }
   }
   return next
@@ -50,7 +73,7 @@ export function editToml(text, spec = {}) {
   const loose = []
   let current = null
   for (const line of body) {
-    const header = /^\s*\[([^\]\n]+)\]\s*$/.exec(line)
+    const header = /^\s*\[([^\]\n]+)\]\s*$/.exec(splitComment(line).code)
     if (header) {
       current = { name: header[1].trim(), lines: [line] }
       chunks.push(current)

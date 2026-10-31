@@ -17,6 +17,8 @@ function writeIfChanged(file, current, next) {
   return true
 }
 
+export const CHECK_LINE = 'Run node scripts/check-pstack.mjs to compare this pin with the catalog. The command only reads.'
+
 export function omitPresentLine(file, body, line) {
   const current = readOrEmpty(file)
   if (!current.split('\n').includes(line)) return body

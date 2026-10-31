@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import path from 'node:path'
 
 const SHA = /^[0-9a-f]{40}$/
@@ -47,7 +47,16 @@ function headOf(dir, env) {
 
 function cacheDir() {
   const base = process.env.XDG_CACHE_HOME || path.join(homedir(), '.cache')
-  return path.join(base, 'pstack-claude-catalog')
+  const preferred = path.join(base, 'pstack-claude-catalog')
+  try {
+    mkdirSync(preferred, { recursive: true })
+    return preferred
+  } catch (error) {
+    if (error.code !== 'EPERM' && error.code !== 'EACCES' && error.code !== 'EROFS') throw error
+  }
+  const fallback = path.join(tmpdir(), 'pstack-claude-catalog')
+  mkdirSync(fallback, { recursive: true })
+  return fallback
 }
 
 export function clonePinned(pin) {

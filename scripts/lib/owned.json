@@ -1,0 +1,14 @@
+[
+  "scripts/setup-pstack-claude.mjs",
+  "scripts/setup-pstack-codex.mjs",
+  "scripts/check-pstack.mjs",
+  "scripts/sync-pstack.mjs",
+  "scripts/lib/advisory.mjs",
+  "scripts/lib/clone.mjs",
+  "scripts/lib/codex-config.mjs",
+  "scripts/lib/owned.json",
+  "scripts/lib/pin.mjs",
+  "scripts/lib/remote.mjs",
+  "scripts/lib/sheet.mjs",
+  "scripts/lib/toml.mjs"
+]

@@ -4,12 +4,13 @@
 //   curl -fsSL https://raw.githubusercontent.com/anas-yousef/pstack-claude-catalog/main/tools/init.mjs | node -
 //   node tools/init.mjs [--profile <name>] [--codex-profile <name>] [--commit <sha>]
 //
-// Writes .claude/pstack-claude-pin.json, copies scripts/setup-pstack-claude.mjs
-// and scripts/setup-pstack-codex.mjs with their helpers, writes
-// .codex/config.toml with the pinned plugins enabled, then runs both setup
-// scripts in this repository. Each script prints `sheet ok` when its sheet
-// passes. PSTACK_PROFILE selects the Claude profile when --profile is absent.
-// Setup writes the chosen sheet's main session row, not a role row.
+// Writes .claude/pstack-claude-pin.json, copies the catalog-owned scripts
+// listed in scripts/lib/owned.json, writes .codex/config.toml with the pinned
+// plugins enabled, then runs both setup scripts in this repository. Each
+// script prints `sheet ok` when its sheet passes. PSTACK_PROFILE selects the
+// Claude profile when --profile is absent, and the matching Codex profile
+// when --codex-profile is absent. Setup writes the chosen sheet's main
+// session row, not a role row. A later init overwrites the copied scripts.
 
 import { spawn, spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -27,7 +28,7 @@ const SETUPS = [
 const SHA = /^[0-9a-f]{40}$/
 const SLUG = /^[a-z0-9][a-z0-9-]*$/
 const USAGE = 'usage: node tools/init.mjs [--profile <name>] [--codex-profile <name>] [--commit <sha>]'
-const FILES = [
+const LEGACY_FILES = [
   'scripts/setup-pstack-claude.mjs',
   'scripts/setup-pstack-codex.mjs',
   'scripts/lib/advisory.mjs',
@@ -37,6 +38,12 @@ const FILES = [
   'scripts/lib/sheet.mjs',
   'scripts/lib/toml.mjs',
 ]
+const CODEX_TWIN = {
+  balanced: 'codex-balanced',
+  lean: 'codex-lean',
+  'design-heavy': 'codex-design-heavy',
+  'design-heavy-extra': 'codex-design-heavy-extra',
+}
 
 function fail(message) {
   process.stderr.write(`${message}\n`)
@@ -68,6 +75,7 @@ function gitEnv(blank) {
 }
 
 function catalogRoot() {
+  if (process.env.PSTACK_CATALOG) return process.env.PSTACK_CATALOG
   if (!import.meta.url.startsWith('file:')) return null
   const file = fileURLToPath(import.meta.url)
   if (path.basename(file) !== 'init.mjs') return null
@@ -76,8 +84,8 @@ function catalogRoot() {
 
 function parseArgs(argv) {
   const fromEnv = process.env.PSTACK_PROFILE
-  let profile = fromEnv ? fromEnv : DEFAULT_PROFILE
-  let codexProfile = DEFAULT_CODEX_PROFILE
+  let profile = fromEnv || DEFAULT_PROFILE
+  let codexProfile = ''
   let commit = ''
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]
@@ -92,6 +100,7 @@ function parseArgs(argv) {
     }
     fail(USAGE)
   }
+  if (!codexProfile) codexProfile = CODEX_TWIN[profile] || DEFAULT_CODEX_PROFILE
   if (!SLUG.test(profile) || !SLUG.test(codexProfile)) fail('profile names must be plain slugs')
   if (commit && !SHA.test(commit)) fail('commit must be 40 hex characters')
   return { profile, codexProfile, commit }
@@ -166,6 +175,33 @@ async function marketplaceAt(commit) {
   return { name: json.name, plugins }
 }
 
+async function textAtStatus(url) {
+  const response = await fetch(url)
+  if (response.status === 404) {
+    const error = new Error(`cannot fetch ${url}`)
+    error.status = 404
+    throw error
+  }
+  if (!response.ok) throw new Error(`cannot fetch ${url}`)
+  return response.text()
+}
+
+async function ownedFiles(commit, sourceRoot) {
+  try {
+    const body = sourceRoot
+      ? readFileSync(path.join(sourceRoot, 'scripts/lib/owned.json'), 'utf8')
+      : await textAtStatus(`https://raw.githubusercontent.com/anas-yousef/pstack-claude-catalog/${commit}/scripts/lib/owned.json`)
+    const list = JSON.parse(body)
+    if (!Array.isArray(list) || list.length === 0 || list.some((item) => typeof item !== 'string' || item.includes('..'))) {
+      throw new Error('owned.json needs catalog paths')
+    }
+    return list
+  } catch (error) {
+    if (!sourceRoot && error.status === 404) return LEGACY_FILES
+    throw error
+  }
+}
+
 async function fileBytes(rel, commit, sourceRoot) {
   if (sourceRoot) return readFileSync(path.join(sourceRoot, rel))
   const body = await textAt(`https://raw.githubusercontent.com/anas-yousef/pstack-claude-catalog/${commit}/${rel}`)
@@ -179,7 +215,8 @@ async function main() {
   await profileAt(commit, codexProfile)
   const sourceRoot = catalogRoot()
   const root = process.cwd()
-  for (const rel of FILES) {
+  const files = await ownedFiles(commit, sourceRoot)
+  for (const rel of files) {
     const target = path.join(root, rel)
     mkdirSync(path.dirname(target), { recursive: true })
     writeFileSync(target, await fileBytes(rel, commit, sourceRoot))
@@ -200,7 +237,8 @@ async function main() {
   writeMerged(path.join(root, '.codex', 'config.toml'), { tables: codexTables(pin, marketplace.name) })
   const setupArgs = ['--profile', profile, '--codex-profile', codexProfile]
   for (const rel of SETUPS) {
-    await runSetup(path.join(root, rel), setupArgs)
+    const args = rel.endsWith('setup-pstack-codex.mjs') ? [...setupArgs, '--write-user-config'] : setupArgs
+    await runSetup(path.join(root, rel), args)
   }
 }
 
