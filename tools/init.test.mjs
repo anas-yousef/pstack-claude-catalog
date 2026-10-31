@@ -132,6 +132,26 @@ test('an AGENTS.md-only repo gets one pstack section and no CLAUDE.md', (t) => {
   assert.equal(readFileSync(path.join(repo, 'AGENTS.md'), 'utf8'), agentsMd)
 })
 
+test('an AGENTS.md include near the top stays the only include line', (t) => {
+  const { home, repo } = fresh(t)
+  const agentsBefore = '# Agents\n\n@.claude/pstack-models.md\n\nKeep this.\n'
+  writeFileSync(path.join(repo, 'AGENTS.md'), agentsBefore)
+  const init = run(repo, home, INIT)
+  assert.equal(init.status, 0, init.stderr)
+  const claude = run(repo, home, path.join(repo, 'scripts', 'setup-pstack-claude.mjs'))
+  assert.equal(claude.status, 0, claude.stderr)
+  assert.equal(claude.stdout, 'sheet ok\n')
+  assert.equal(existsSync(path.join(repo, 'CLAUDE.md')), false)
+  const agentsMd = readFileSync(path.join(repo, 'AGENTS.md'), 'utf8')
+  assert.ok(agentsMd.startsWith(`${agentsBefore}\n## pstack\n`))
+  assert.equal((agentsMd.match(/^@\.claude\/pstack-models\.md$/gm) || []).length, 1)
+  assert.equal((agentsMd.match(/^## pstack$/gm) || []).length, 1)
+  assert.match(agentsMd, /setup-pstack-claude\.mjs/)
+  const again = run(repo, home, path.join(repo, 'scripts', 'setup-pstack-claude.mjs'))
+  assert.equal(again.status, 0, again.stderr)
+  assert.equal(readFileSync(path.join(repo, 'AGENTS.md'), 'utf8'), agentsMd)
+})
+
 test('an existing repo keeps its docs and product skills', (t) => {
   const { home, repo } = fresh(t)
   const claudeBefore = '# Product\n\nKeep this.'
