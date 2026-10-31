@@ -58,8 +58,12 @@ pstack-claude reads its per-role models from a `pstack-models.md` sheet. With no
 | Profile | Mix |
 | --- | --- |
 | `balanced` | Opus for most roles, Sonnet for feature work and workers, Fable for the strongest judgment. `high` by default, `xhigh` for bug-fix, perf-issue, the why synthesizer, and judges. |
+| `design-heavy` | Opus at `high` for judgment and prose, the strongest judgment, and the Opus seat on architect runners, arena judges, and interrogate reviewers. Sonnet at `high` for feature work, refactoring, and workers. Opus at `high` for bug-fix and perf-issue. Other roles match `balanced`, including the other panel seats. |
+| `design-heavy-extra` | The `design-heavy` mix, with those Opus design seats at `xhigh`. Bug-fix and perf-issue stay Opus at `high`. |
 | `lean` | Sonnet and Haiku, with Opus only for the strongest judgment. Haiku explores at `medium`. Sonnet works at `high`, and at `xhigh` for bug-fix and perf-issue. |
 | `max` | Opus and Fable at `xhigh`, and at `max` for bug-fix, perf-issue, the strongest judgment, judges, and design. Exploration and workers stay at `high`. |
+
+A PRD or a spec has no role line. That prose uses `judgment and prose`.
 
 To use a Claude profile in a project, copy it to `.claude/pstack-models.md` and add this line to the project's `CLAUDE.md`:
 
@@ -67,18 +71,20 @@ To use a Claude profile in a project, copy it to `.claude/pstack-models.md` and 
 @.claude/pstack-models.md
 ```
 
-The sheet states that it takes precedence over `<config>/pstack-models.md`, which `/setup-pstack` writes. `balanced`, `lean`, and `max` pass `plugins/pstack/skills/setup-pstack/scripts/check-sheet.sh`. To add a Claude mix, add one file to `profiles/` with every role line and a `Profile:` line, and run that check on it. `tools/sync.mjs` never writes or deletes `profiles/`.
+The sheet states that it takes precedence over `<config>/pstack-models.md`, which `/setup-pstack` writes. `balanced`, `design-heavy`, `design-heavy-extra`, `lean`, and `max` pass `plugins/pstack/skills/setup-pstack/scripts/check-sheet.sh`. To add a Claude mix, add one file to `profiles/` with every role line and a `Profile:` line, and run that check on it. `tools/sync.mjs` never writes or deletes `profiles/`.
 
 ### Codex profiles
 
-`profiles/codex-balanced.md` and `profiles/codex-lean.md` are Codex sheets. Codex installs a profile as `<codex-home>/pstack-models.md`. Paste the model rows and the `default effort` line into `<codex-home>/AGENTS.md`.
+`profiles/codex-balanced.md`, `profiles/codex-design-heavy.md`, `profiles/codex-design-heavy-extra.md`, and `profiles/codex-lean.md` are Codex sheets. Codex installs a profile as `<codex-home>/pstack-models.md`. Paste the model rows, the `default effort` line, and the minimum-effort line into `<codex-home>/AGENTS.md`.
 
 | Profile | Mix |
 | --- | --- |
 | `codex-balanced` | Sol for feature work, exploration, and workers. Astra for bug-fix, perf, and judgment, at `high`, and at `xhigh` where a role hunts an unknown cause or judges. Terra is the third seat on the arena and interrogate panels. |
+| `codex-design-heavy` | Astra at `high` for judgment and prose, the strongest judgment, and the Astra seat on architect runners, arena judges, and interrogate reviewers. Sol at `high` for feature work, refactoring, and workers. Astra at `high` for bug-fix and perf-issue. Other roles match `codex-balanced`. |
+| `codex-design-heavy-extra` | The `codex-design-heavy` mix, with those Astra design seats at `xhigh`. Bug-fix and perf-issue stay Astra at `high`. |
 | `codex-lean` | Sol at `high` for each single-model role other than bug-fix, perf-issue, and the strongest judgment, which use Astra at `high`. Panels use Sol, Terra, and Luna. |
 
-Both sheets include `panel vendors: any`, because every Codex slug shares a `gpt-` prefix. setup-pstack pastes the model rows and the `default effort` line into `<codex-home>/AGENTS.md`. `panel vendors: any` is outside that paste, so it stays in the sheet. Every profile must cover every role. This README is the only place that rule is recorded.
+Each Codex sheet includes `panel vendors: any`, because every Codex slug shares a `gpt-` prefix. Each sheet also says the effort on a role line is a minimum, and that subagents and the main session must not run below it. setup-pstack pastes the model rows and the `default effort` line into `<codex-home>/AGENTS.md`. Paste the minimum-effort line with them. `panel vendors: any` is outside that paste, so it stays in the sheet. Every profile must cover every role. This README is the only place that rule is recorded.
 
 ## Update
 
