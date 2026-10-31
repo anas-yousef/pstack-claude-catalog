@@ -10,7 +10,7 @@ import { readPin } from '../scripts/lib/pin.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const INIT = path.join(ROOT, 'tools', 'init.mjs')
-const MAIN = '860e1c1458b60c6568108f5d4d08830d570e01f4'
+const MAIN = 'bfd48a1b300dbad50f6ea2e30f4a3edbe9737943'
 
 function git(args, cwd) {
   const result = spawnSync('git', args, { cwd, encoding: 'utf8' })
@@ -29,12 +29,26 @@ function fresh(t) {
   return { home, repo }
 }
 
-function run(repo, home, script, args = [], extraEnv = {}) {
+function childEnv(home, extraEnv = {}) {
   const env = { ...process.env, HOME: home, ...extraEnv }
   delete env.XDG_CACHE_HOME
   delete env.CODEX_HOME
+  delete env.PSTACK_CATALOG
   if (!Object.hasOwn(extraEnv, 'PSTACK_PROFILE')) delete env.PSTACK_PROFILE
-  return spawnSync(process.execPath, [script, ...args], { cwd: repo, encoding: 'utf8', env })
+  return env
+}
+
+function run(repo, home, script, args = [], extraEnv = {}) {
+  return spawnSync(process.execPath, [script, ...args], { cwd: repo, encoding: 'utf8', env: childEnv(home, extraEnv) })
+}
+
+function pipeInit(repo, home, args = [], extraEnv = {}) {
+  return spawnSync(process.execPath, ['-', ...args], {
+    cwd: repo,
+    encoding: 'utf8',
+    env: childEnv(home, extraEnv),
+    input: readFileSync(INIT),
+  })
 }
 
 function withHome(home, fn) {
@@ -79,8 +93,9 @@ test('a new repo installs both sheets and records the session model', (t) => {
   const { home, repo } = fresh(t)
   mkdirSync(path.join(home, '.codex'), { recursive: true })
   writeFileSync(path.join(home, '.codex', 'config.toml'), 'model = "old-model"\nmodel_reasoning_effort = "low"\n\n[features]\nmulti_agent = true\n')
-  const init = run(repo, home, INIT)
+  const init = pipeInit(repo, home)
   assert.equal(init.status, 0, init.stderr)
+  assert.equal(init.stdout, 'sheet ok\nsheet ok\n')
   const pin = JSON.parse(readFileSync(path.join(repo, '.claude', 'pstack-claude-pin.json'), 'utf8'))
   assert.equal(pin.repo, 'https://github.com/anas-yousef/pstack-claude-catalog')
   assert.match(pin.commit, /^[0-9a-f]{40}$/)
@@ -88,18 +103,11 @@ test('a new repo installs both sheets and records the session model', (t) => {
   assert.equal(pin.codexProfile, 'codex-balanced')
   assert.deepEqual(pin.plugins, ['pstack', 'pstack-extras'])
   assert.equal(existsSync(path.join(repo, 'plugins')), false)
-  installLocalProfiles(repo, home)
-
-  const claude = run(repo, home, path.join(repo, 'scripts', 'setup-pstack-claude.mjs'))
-  assert.equal(claude.status, 0, claude.stderr)
-  assert.equal(claude.stdout, 'sheet ok\n')
-  const codex = run(repo, home, path.join(repo, 'scripts', 'setup-pstack-codex.mjs'))
-  assert.equal(codex.status, 0, codex.stderr)
-  assert.equal(codex.stdout, 'sheet ok\n')
 
   assert.equal(existsSync(path.join(repo, 'CLAUDE.md')), false)
   const agentsMd = readFileSync(path.join(repo, 'AGENTS.md'), 'utf8')
   assert.equal((agentsMd.match(/^## pstack$/gm) || []).length, 1)
+  assert.equal((agentsMd.match(/^@\.claude\/pstack-models\.md$/gm) || []).length, 1)
   assert.match(agentsMd, /@\.claude\/pstack-models\.md/)
   assert.doesNotMatch(agentsMd, /CLAUDE\.md/)
   assert.match(readFileSync(path.join(repo, '.claude', 'pstack-models.md'), 'utf8'), /^Profile: balanced\./m)
@@ -142,8 +150,9 @@ test('an AGENTS.md-only repo gets one pstack section and no CLAUDE.md', (t) => {
   const { home, repo } = fresh(t)
   const agentsBefore = '# Agents\n\nKeep this.\n'
   writeFileSync(path.join(repo, 'AGENTS.md'), agentsBefore)
-  const init = run(repo, home, INIT)
+  const init = pipeInit(repo, home)
   assert.equal(init.status, 0, init.stderr)
+  assert.match(init.stdout, /sheet ok/)
   installLocalProfiles(repo, home)
   const claude = run(repo, home, path.join(repo, 'scripts', 'setup-pstack-claude.mjs'))
   const codex = run(repo, home, path.join(repo, 'scripts', 'setup-pstack-codex.mjs'))
@@ -178,8 +187,9 @@ test('an AGENTS.md include near the top stays the only include line', (t) => {
   const { home, repo } = fresh(t)
   const agentsBefore = '# Agents\n\n@.claude/pstack-models.md\n\nKeep this.\n'
   writeFileSync(path.join(repo, 'AGENTS.md'), agentsBefore)
-  const init = run(repo, home, INIT)
+  const init = pipeInit(repo, home)
   assert.equal(init.status, 0, init.stderr)
+  assert.match(init.stdout, /sheet ok/)
   installLocalProfiles(repo, home)
   const claude = run(repo, home, path.join(repo, 'scripts', 'setup-pstack-claude.mjs'))
   assert.equal(claude.status, 0, claude.stderr)
@@ -211,8 +221,9 @@ test('an existing repo keeps its docs and product skills', (t) => {
   writeFileSync(path.join(repo, '.codex', 'config.toml'), '[features]\nmulti_agent = true\n')
   writeFileSync(path.join(repo, '.claude', 'settings.json'), `${JSON.stringify({ permissions: { allow: ['Bash'] }, model: 'old' }, null, 2)}\n`)
 
-  const init = run(repo, home, INIT)
+  const init = pipeInit(repo, home)
   assert.equal(init.status, 0, init.stderr)
+  assert.match(init.stdout, /sheet ok/)
   installLocalProfiles(repo, home)
   const claude = run(repo, home, path.join(repo, 'scripts', 'setup-pstack-claude.mjs'))
   const codex = run(repo, home, path.join(repo, 'scripts', 'setup-pstack-codex.mjs'))
@@ -254,6 +265,7 @@ test('flags select the pin and a bad profile writes nothing', (t) => {
   const { home, repo } = fresh(t)
   const selected = run(repo, home, INIT, ['--profile', 'lean', '--codex-profile', 'codex-lean', '--commit', MAIN])
   assert.equal(selected.status, 0, selected.stderr)
+  assert.match(selected.stdout, /sheet ok/)
   const pin = JSON.parse(readFileSync(path.join(repo, '.claude', 'pstack-claude-pin.json'), 'utf8'))
   assert.equal(pin.profile, 'lean')
   assert.equal(pin.codexProfile, 'codex-lean')
@@ -295,35 +307,33 @@ test('every sheet names its own main session', () => {
 
 test('design-heavy-extra writes opus and astra for the main session', (t) => {
   const { home, repo } = fresh(t)
-  const selected = run(repo, home, INIT, ['--profile', 'design-heavy-extra', '--codex-profile', 'codex-design-heavy-extra'], { PSTACK_PROFILE: 'lean' })
+  const selected = pipeInit(repo, home, ['--profile', 'design-heavy-extra', '--codex-profile', 'codex-design-heavy-extra'], { PSTACK_PROFILE: 'lean' })
   assert.equal(selected.status, 0, selected.stderr)
+  assert.equal(selected.stdout, 'sheet ok\nsheet ok\n')
   const pin = JSON.parse(readFileSync(path.join(repo, '.claude', 'pstack-claude-pin.json'), 'utf8'))
   assert.equal(pin.profile, 'design-heavy-extra')
   assert.equal(pin.codexProfile, 'codex-design-heavy-extra')
-  installLocalProfiles(repo, home)
-  assert.equal(run(repo, home, path.join(repo, 'scripts', 'setup-pstack-claude.mjs')).status, 0)
-  assert.equal(run(repo, home, path.join(repo, 'scripts', 'setup-pstack-codex.mjs')).status, 0)
   assert.deepEqual(settings(repo), { model: 'opus', effortLevel: 'high' })
   assert.deepEqual(modelLines(home), ['model = "gpt-6-astra"', 'model_reasoning_effort = "high"'])
 })
 
 test('PSTACK_PROFILE switches the Claude main session', (t) => {
   const { home, repo } = fresh(t)
-  const selected = run(repo, home, INIT, [], { PSTACK_PROFILE: 'design-heavy-extra' })
+  const selected = pipeInit(repo, home, [], { PSTACK_PROFILE: 'design-heavy-extra' })
   assert.equal(selected.status, 0, selected.stderr)
+  assert.match(selected.stdout, /sheet ok/)
   const pin = JSON.parse(readFileSync(path.join(repo, '.claude', 'pstack-claude-pin.json'), 'utf8'))
   assert.equal(pin.profile, 'design-heavy-extra')
   assert.equal(pin.codexProfile, 'codex-balanced')
-  installLocalProfiles(repo, home)
-  assert.equal(run(repo, home, path.join(repo, 'scripts', 'setup-pstack-claude.mjs')).status, 0)
-  assert.equal(run(repo, home, path.join(repo, 'scripts', 'setup-pstack-codex.mjs')).status, 0)
   assert.deepEqual(settings(repo), { model: 'opus', effortLevel: 'high' })
   assert.deepEqual(modelLines(home), ['model = "gpt-6.1-sol"', 'model_reasoning_effort = "high"'])
 })
 
 test('a role row edit does not change the main session', (t) => {
   const { home, repo } = fresh(t)
-  assert.equal(run(repo, home, INIT).status, 0)
+  const init = run(repo, home, INIT)
+  assert.equal(init.status, 0, init.stderr)
+  assert.match(init.stdout, /sheet ok/)
   installLocalProfiles(repo, home)
   assert.equal(run(repo, home, path.join(repo, 'scripts', 'setup-pstack-claude.mjs')).status, 0)
   assert.equal(run(repo, home, path.join(repo, 'scripts', 'setup-pstack-codex.mjs')).status, 0)
@@ -339,4 +349,40 @@ test('a role row edit does not change the main session', (t) => {
   assert.match(readFileSync(path.join(home, '.codex', 'pstack-models.md'), 'utf8'), /^feature, refactoring: gpt-6-luna @low$/m)
   assert.deepEqual(settings(repo), { model: 'sonnet', effortLevel: 'high' })
   assert.deepEqual(modelLines(home), ['model = "gpt-6.1-sol"', 'model_reasoning_effort = "high"'])
+})
+
+function seedBrokenSession(home, commit) {
+  const dest = path.join(home, '.cache', 'pstack-claude-catalog', commit)
+  const blank = path.join(home, '.cache', 'pstack-claude-catalog', 'gitconfig')
+  mkdirSync(dest, { recursive: true })
+  writeFileSync(blank, '')
+  const env = childEnv(home)
+  for (const key of Object.keys(env)) {
+    if (key === 'GIT_CONFIG_COUNT' || key.startsWith('GIT_CONFIG_KEY_') || key.startsWith('GIT_CONFIG_VALUE_') || key === 'GH_TOKEN' || key === 'GITHUB_TOKEN') {
+      delete env[key]
+    }
+  }
+  env.GIT_TERMINAL_PROMPT = '0'
+  env.GIT_CONFIG_GLOBAL = blank
+  env.GIT_CONFIG_SYSTEM = blank
+  env.GIT_CONFIG_NOSYSTEM = '1'
+  const gitIn = (args) => {
+    const result = spawnSync('git', args, { cwd: dest, env, encoding: 'utf8' })
+    assert.equal(result.status, 0, result.stderr || result.stdout)
+  }
+  gitIn(['init', '-q'])
+  gitIn(['fetch', '-q', '--depth', '1', 'https://github.com/anas-yousef/pstack-claude-catalog.git', commit])
+  gitIn(['checkout', '-q', '--detach', 'FETCH_HEAD'])
+  const sheet = path.join(dest, 'profiles', 'balanced.md')
+  const text = readFileSync(sheet, 'utf8').split('\n').filter((line) => !line.startsWith('main session:')).join('\n')
+  writeFileSync(sheet, text.endsWith('\n') ? text : `${text}\n`)
+}
+
+test('a sheet without a main session row makes init exit non-zero', (t) => {
+  const { home, repo } = fresh(t)
+  seedBrokenSession(home, MAIN)
+  const init = pipeInit(repo, home, ['--commit', MAIN])
+  assert.notEqual(init.status, 0)
+  assert.doesNotMatch(init.stdout, /sheet ok/)
+  assert.match(init.stderr, /main session/)
 })
