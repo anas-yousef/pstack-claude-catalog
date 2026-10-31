@@ -17,6 +17,12 @@ function writeIfChanged(file, current, next) {
   return true
 }
 
+export function omitPresentLine(file, body, line) {
+  const current = readOrEmpty(file)
+  if (!current.split('\n').includes(line)) return body
+  return body.split('\n').filter((part) => part !== line).join('\n').trim()
+}
+
 export function appendSection(file, heading, body) {
   const current = readOrEmpty(file)
   const lines = current === '' ? [] : current.split('\n')
