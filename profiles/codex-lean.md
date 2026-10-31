@@ -23,3 +23,4 @@ architect runners: gpt-6.1-sol @high, gpt-6.1-terra @high, gpt-6-luna @high
 interrogate reviewers: gpt-6.1-sol @high, gpt-6.1-terra @high, gpt-6-luna @high
 
 default effort: high
+panel vendors: any

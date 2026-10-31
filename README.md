@@ -76,7 +76,7 @@ The sheet states that it takes precedence over `<config>/pstack-models.md`, whic
 | `codex-balanced` | Sol for feature work, exploration, and workers. Astra for bug-fix, perf, and judgment, at `high`, and at `xhigh` where a role hunts an unknown cause or judges. Terra is the third seat on the arena and interrogate panels. |
 | `codex-lean` | Sol at `high` for each single-model role other than bug-fix, perf-issue, and the strongest judgment, which use Astra at `high`. Panels use Sol, Terra, and Luna. |
 
-Codex slugs share a `gpt-` prefix, so `check-sheet.sh` reports one vendor for each panel. These sheets have no `panel vendors` line. Every profile must cover every role. This README is the only place that rule is recorded.
+Both sheets include `panel vendors: any`, because every Codex slug shares a `gpt-` prefix. setup-pstack pastes the model rows and the `default effort` line into `<codex-home>/AGENTS.md`. `panel vendors: any` is outside that paste, so it stays in the sheet. Every profile must cover every role. This README is the only place that rule is recorded.
 
 ## Update
 
