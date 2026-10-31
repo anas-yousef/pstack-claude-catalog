@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import path from 'node:path'
 
@@ -56,4 +56,49 @@ export function copyProfile(checkout, name, dest) {
 
 export function codexHome() {
   return process.env.CODEX_HOME || path.join(homedir(), '.codex')
+}
+
+const MODEL_INCLUDE = '@.claude/pstack-models.md'
+const CHECK_COMMAND = 'node scripts/check-pstack.mjs'
+
+function readOrEmpty(file) {
+  try {
+    return readFileSync(file, 'utf8')
+  } catch (error) {
+    if (error.code === 'ENOENT') return ''
+    throw error
+  }
+}
+
+function sectionEnd(lines, start) {
+  for (let index = start + 1; index < lines.length; index += 1) {
+    if (lines[index].startsWith('## ')) return index
+  }
+  return lines.length
+}
+
+export function pstackBlock(file) {
+  const lines = readOrEmpty(file).replace(/\n$/, '').split('\n')
+  const start = lines.indexOf('## pstack')
+  const end = start === -1 ? lines.length : sectionEnd(lines, start)
+  const outside = start === -1 ? lines : [...lines.slice(0, start), ...lines.slice(end)]
+  if (outside.includes(MODEL_INCLUDE)) return CHECK_COMMAND
+  return `${MODEL_INCLUDE}\n${CHECK_COMMAND}`
+}
+
+export function putSection(file, heading, body) {
+  const current = readOrEmpty(file)
+  const block = `${heading}\n\n${body.trim()}\n`
+  const lines = current === '' ? [] : current.replace(/\n$/, '').split('\n')
+  const start = lines.indexOf(heading)
+  let next
+  if (start === -1) {
+    next = current === '' ? block : `${current.endsWith('\n') ? current : `${current}\n`}\n${block}`
+  } else {
+    const merged = [...lines.slice(0, start), ...block.replace(/\n$/, '').split('\n'), ...lines.slice(sectionEnd(lines, start))]
+    next = `${merged.join('\n')}\n`
+  }
+  if (next === current) return
+  mkdirSync(path.dirname(file), { recursive: true })
+  writeFileSync(file, next)
 }

@@ -15,10 +15,6 @@ const MAIN = 'bfd48a1b300dbad50f6ea2e30f4a3edbe9737943'
 const CHECK_RULES = [
   'Bash(node scripts/check-pstack.mjs)',
   'Bash(node scripts/check-pstack.mjs *)',
-  'Bash(node scripts/setup-pstack-claude.mjs --check)',
-  'Bash(node scripts/setup-pstack-claude.mjs --outdated)',
-  'Bash(node scripts/setup-pstack-codex.mjs --check)',
-  'Bash(node scripts/setup-pstack-codex.mjs --outdated)',
 ]
 
 function git(args, cwd) {
@@ -179,6 +175,7 @@ test('a new repo installs both sheets and records the session model', (t) => {
   assert.doesNotMatch(homeAgents, /panel vendors/)
   assert.doesNotMatch(agentsMd, /gpt-6/)
 
+  assert.deepEqual(readdirSync(path.join(repo, '.codex')).sort(), ['config.toml'])
   const projectConfig = readFileSync(path.join(repo, '.codex', 'config.toml'), 'utf8')
   assert.match(projectConfig, /\[plugins\."pstack@pstack-claude-catalog"\]\nenabled = true/)
   assert.match(projectConfig, /\[plugins\."pstack-extras@pstack-claude-catalog"\]\nenabled = true/)
@@ -217,9 +214,9 @@ test('an AGENTS.md-only repo gets one pstack section and no CLAUDE.md', (t) => {
   const agentsMd = readFileSync(path.join(repo, 'AGENTS.md'), 'utf8')
   assert.ok(agentsMd.startsWith(`${agentsBefore}\n## pstack\n`))
   assert.equal((agentsMd.match(/^## pstack$/gm) || []).length, 1)
-  assert.match(agentsMd, /@\.claude\/pstack-models\.md/)
-  assert.match(agentsMd, /setup-pstack-claude\.mjs/)
-  assert.match(agentsMd, /Codex loads role models/)
+  assert.match(agentsMd, /^@\.claude\/pstack-models\.md$/m)
+  assert.match(agentsMd, /^node scripts\/check-pstack\.mjs$/m)
+  assert.doesNotMatch(agentsMd, /This repo pins/)
   assert.doesNotMatch(agentsMd, /CLAUDE\.md/)
 
   const reversedRepo = mkdtempSync(path.join(tmpdir(), 'pstack-repo-'))
@@ -254,7 +251,7 @@ test('an AGENTS.md include near the top stays the only include line', (t) => {
   assert.ok(agentsMd.startsWith(`${agentsBefore}\n## pstack\n`))
   assert.equal((agentsMd.match(/^@\.claude\/pstack-models\.md$/gm) || []).length, 1)
   assert.equal((agentsMd.match(/^## pstack$/gm) || []).length, 1)
-  assert.match(agentsMd, /setup-pstack-claude\.mjs/)
+  assert.match(agentsMd, /^node scripts\/check-pstack\.mjs$/m)
   const again = run(repo, home, path.join(repo, 'scripts', 'setup-pstack-claude.mjs'))
   assert.equal(again.status, 0, again.stderr)
   assert.equal(readFileSync(path.join(repo, 'AGENTS.md'), 'utf8'), agentsMd)
@@ -292,10 +289,12 @@ test('an existing repo keeps its docs and product skills', (t) => {
 
   const claudeMd = readFileSync(path.join(repo, 'CLAUDE.md'), 'utf8')
   const agentsMd = readFileSync(path.join(repo, 'AGENTS.md'), 'utf8')
-  assert.ok(claudeMd.startsWith('# Product\n\nKeep this.\n\n## pstack\n'))
-  assert.ok(agentsMd.startsWith('# Agents\n\nKeep this too.\n\n## pstack\n'))
+  assert.ok(claudeMd.startsWith('# Product\n\nKeep this.\n\n## pstack\n\n@.claude/pstack-models.md\nnode scripts/check-pstack.mjs\n'))
+  assert.ok(agentsMd.startsWith('# Agents\n\nKeep this too.\n\n## pstack\n\n@.claude/pstack-models.md\nnode scripts/check-pstack.mjs\n'))
   assert.doesNotMatch(claudeMd, /AGENTS\.md/)
   assert.doesNotMatch(agentsMd, /CLAUDE\.md/)
+  assert.doesNotMatch(claudeMd, /This repo pins/)
+  assert.doesNotMatch(agentsMd, /This repo pins/)
   assert.equal(readFileSync(skill, 'utf8'), 'product skill\n')
   assert.equal(readFileSync(other, 'utf8'), 'other skill\n')
   const projectConfig = readFileSync(path.join(repo, '.codex', 'config.toml'), 'utf8')
@@ -538,6 +537,41 @@ test('check and sync do not need git writes', (t) => {
   } finally {
     spawnSync('chmod', ['-R', 'u+w', gitDir])
   }
+})
+
+test('a broken settings file and config are replaced', (t) => {
+  const { home, repo } = fresh(t)
+  mkdirSync(path.join(repo, '.claude'), { recursive: true })
+  mkdirSync(path.join(repo, '.codex'), { recursive: true })
+  mkdirSync(path.join(home, '.codex'), { recursive: true })
+  const settings = path.join(repo, '.claude', 'settings.json')
+  const projectToml = path.join(repo, '.codex', 'config.toml')
+  const homeToml = path.join(home, '.codex', 'config.toml')
+  writeFileSync(settings, '{')
+  writeFileSync(projectToml, '{')
+  writeFileSync(homeToml, 'model = "')
+  const init = pipeInit(repo, home)
+  assert.equal(init.status, 0, init.stderr)
+  assert.equal((init.stdout.match(/sheet ok/g) || []).length, 2)
+  for (const file of [settings, projectToml, homeToml]) {
+    assert.ok(init.stdout.includes(`backed up ${file} to ${file}.bak`), file)
+  }
+  assert.equal(readFileSync(`${settings}.bak`, 'utf8'), '{')
+  assert.equal(readFileSync(`${projectToml}.bak`, 'utf8'), '{')
+  assert.equal(readFileSync(`${homeToml}.bak`, 'utf8'), 'model = "')
+  const settingsText = readFileSync(settings, 'utf8')
+  const projectText = readFileSync(projectToml, 'utf8')
+  const homeText = readFileSync(homeToml, 'utf8')
+  assert.equal(JSON.parse(settingsText).model, 'sonnet')
+  assert.match(projectText, /ref = "/)
+  assert.match(homeText, /^model = "gpt-6\.1-sol"$/m)
+  const again = pipeInit(repo, home)
+  assert.equal(again.status, 0, again.stderr)
+  assert.equal(again.stdout, 'sheet ok\nsheet ok\n')
+  assert.equal(readFileSync(`${settings}.bak`, 'utf8'), '{')
+  assert.equal(readFileSync(settings, 'utf8'), settingsText)
+  assert.equal(readFileSync(projectToml, 'utf8'), projectText)
+  assert.equal(readFileSync(homeToml, 'utf8'), homeText)
 })
 
 test('an older commit still installs through the pipe', (t) => {

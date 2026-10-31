@@ -114,8 +114,56 @@ function readOrEmpty(file) {
   }
 }
 
+function tomlOk(text) {
+  let quote = ''
+  const stack = []
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index]
+    if (quote) {
+      if (char === '\\' && quote === '"') {
+        index += 1
+        continue
+      }
+      if (char === quote) quote = ''
+      continue
+    }
+    if (char === '"' || char === "'") {
+      quote = char
+      continue
+    }
+    if (char === '#') {
+      while (index < text.length && text[index] !== '\n') index += 1
+      continue
+    }
+    if (char === '[' || char === '{') stack.push(char)
+    if (char === ']' || char === '}') {
+      const open = stack.pop()
+      if ((char === ']' && open !== '[') || (char === '}' && open !== '{')) return false
+    }
+  }
+  if (quote || stack.length > 0) return false
+  for (const line of text.split('\n')) {
+    const code = splitComment(line).code.trim()
+    if (!code) continue
+    if (/^\[\[?[^\]]+\]\]?$/.test(code)) continue
+    if (/^[A-Za-z0-9_.-]+\s*=/.test(code)) continue
+    return false
+  }
+  return true
+}
+
+function backup(file, raw) {
+  mkdirSync(path.dirname(file), { recursive: true })
+  writeFileSync(`${file}.bak`, raw)
+  process.stdout.write(`backed up ${file} to ${file}.bak\n`)
+}
+
 export function writeMerged(file, spec) {
-  const current = readOrEmpty(file)
+  let current = readOrEmpty(file)
+  if (current !== '' && !tomlOk(current)) {
+    backup(file, current)
+    current = ''
+  }
   const next = editToml(current, spec)
   if (next === current) return
   mkdirSync(path.dirname(file), { recursive: true })

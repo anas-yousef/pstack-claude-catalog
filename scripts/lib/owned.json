@@ -3,7 +3,6 @@
   "scripts/setup-pstack-codex.mjs",
   "scripts/check-pstack.mjs",
   "scripts/sync-pstack.mjs",
-  "scripts/lib/advisory.mjs",
   "scripts/lib/clone.mjs",
   "scripts/lib/codex-config.mjs",
   "scripts/lib/owned.json",
