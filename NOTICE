@@ -21,7 +21,7 @@ agent-skills substitutions after a refresh of that source.
 
 pstack-claude
   Source:  https://github.com/michael-denyer/pstack-claude (plugins/pstack/)
-  Commit:  22b5e137e945cb65dd29dac5fc703c13d83a00aa
+  Commit:  5851c89613e2ddc3a6b7f4af02a42363b30ef8d3
   License: MIT, Copyright (c) 2026 Lauren Tan; port changes Copyright (c) 2026
            Michael Denyer. See third-party/pstack-claude/LICENSE and NOTICE.md.
            Skills the port took from cursor-team-kit and thermos keep those
@@ -64,7 +64,7 @@ mattpocock/skills
 
 agent-skills
   Source:  https://github.com/addyosmani/agent-skills (skills/)
-  Commit:  eb07f19f52c2669f2364897aaa293e2aaddd7b1c
+  Commit:  8bfcc1f9916f2eea55494d8c1fa7f4bde867dd9e
   License: MIT, Copyright (c) 2025 Addy Osmani. See third-party/agent-skills/LICENSE.
   Files:   plugins/pstack-extras/skills/spec-driven-development,
            planning-and-task-breakdown, incremental-implementation,
