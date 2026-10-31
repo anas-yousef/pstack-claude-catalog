@@ -21,6 +21,45 @@ poteto-mode is the single entry point. For a product or a large feature, poteto-
 
 ## Use it from a project
 
+A project adopts this catalog with the init script below. The manual install that follows is the same pin, written out as separate commands.
+
+## New repo
+
+Create a git repository, then run the public init script. The script reads the current `main` commit from the public https URL. No GitHub login is required.
+
+```sh
+mkdir my-app
+cd my-app
+git init
+curl -fsSL https://raw.githubusercontent.com/anas-yousef/pstack-claude-catalog/main/tools/init.mjs | node -
+node scripts/setup-pstack-claude.mjs
+node scripts/setup-pstack-codex.mjs
+```
+
+Init writes `.claude/pstack-claude-pin.json`, copies `scripts/setup-pstack-claude.mjs` and `scripts/setup-pstack-codex.mjs` with their helpers, and writes `.codex/config.toml`. The pin records this repository, the current `main` commit, profile `balanced`, Codex profile `codex-balanced`, and the marketplace plugins.
+
+Each setup command clones that commit into the cache directory outside the project and prints `sheet ok`. Claude setup writes `.claude/pstack-models.md`. When `CLAUDE.md` has no `## pstack` heading, it appends one that includes `@.claude/pstack-models.md`. Codex setup writes the Codex sheet to `$CODEX_HOME/pstack-models.md`. When `CODEX_HOME` is unset, that path is `~/.codex/pstack-models.md`. It sets `model` and `model_reasoning_effort` in that home `config.toml`. `model` is the `feature, refactoring` slug from the sheet. `model_reasoning_effort` is the sheet's `default effort` when that value is `low`, `medium`, `high`, `xhigh`, or `max`. It pastes the role rows, the `default effort` line, and the minimum-effort line into `$CODEX_HOME/AGENTS.md` under `## pstack models`.
+
+`.codex/config.toml` in the project enables each pinned plugin and sets the marketplace `ref` to the pinned commit.
+
+To pick another sheet or commit, pass flags after `node -`:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/anas-yousef/pstack-claude-catalog/main/tools/init.mjs | node - --profile lean --codex-profile codex-lean --commit <sha>
+```
+
+`--profile` and `--codex-profile` name files in `profiles/`. `--commit` is the 40-character id of a commit in this repository. The defaults are `balanced`, `codex-balanced`, and the current `main` commit.
+
+## Existing repo
+
+Run the same commands from the root of a repository that already has history. Run them again when you want that same end state.
+
+Init leaves an existing `CLAUDE.md` and an existing `AGENTS.md` in place. Claude setup appends a short `## pstack` section to `CLAUDE.md` only when that heading is missing. Codex setup appends a short `## pstack` section to `AGENTS.md` only when that heading is missing. Each file stands alone.
+
+Setup writes the sheet, the advisory heading, and the Codex home model lines. It leaves every other project file alone, including skills the product already has. A second run keeps the same `CLAUDE.md`, the same `AGENTS.md`, and the same model lines.
+
+## Manual install
+
 Pin one commit of this repo in the project. Then clone that commit onto the machine and install the plugins from the clone:
 
 ```sh
@@ -71,7 +110,7 @@ To use a Claude profile in a project, copy it to `.claude/pstack-models.md` and 
 @.claude/pstack-models.md
 ```
 
-The sheet states that it takes precedence over `<config>/pstack-models.md`, which `/setup-pstack` writes. `balanced`, `design-heavy`, `design-heavy-extra`, `lean`, and `max` pass `plugins/pstack/skills/setup-pstack/scripts/check-sheet.sh`. To add a Claude mix, add one file to `profiles/` with every role line and a `Profile:` line, and run that check on it. `tools/sync.mjs` never writes or deletes `profiles/`.
+The sheet states that it takes precedence over `<config>/pstack-models.md`, which `/setup-pstack` writes. `balanced`, `design-heavy`, `design-heavy-extra`, `lean`, and `max` pass `plugins/pstack/skills/setup-pstack/scripts/check-sheet.sh`. To add a Claude mix, add one file to `profiles/` with every role line and a `Profile:` line, and run that check on it. `tools/sync.mjs` never writes or deletes `profiles/`, `scripts/`, or `tools/`.
 
 ### Codex profiles
 
