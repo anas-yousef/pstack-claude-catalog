@@ -73,8 +73,8 @@ agent-skills
            frontend-ui-engineering, browser-testing-with-devtools,
            plus plugins/pstack-extras/references/performance-checklist.md
            and accessibility-checklist.md
-  Changes: local substitutions, so these skills point at files this catalog
-           ships. A later `node tools/sync.mjs` restores the upstream
+  Changes: three local substitutions, so these skills point at skills this
+           catalog ships. A later `node tools/sync.mjs` restores the upstream
            sentences. Reapply the substitutions below before committing a
            refresh of this source.
            spec-driven-development Phase 4 follows
@@ -89,11 +89,6 @@ agent-skills
            plugins/pstack/skills/tdd/SKILL.md and superpowers
            systematic-debugging at
            plugins/pstack-extras/skills/systematic-debugging/SKILL.md.
-           performance-optimization, its references/optimization-patterns.md,
-           frontend-ui-engineering, and shipping-and-launch point at
-           plugins/pstack-extras/references/performance-checklist.md and
-           plugins/pstack-extras/references/accessibility-checklist.md.
-           Upstream writes those as relative paths from the skill file.
   Not vendored: hooks, using-agent-skills, test-driven-development,
            debugging-and-error-recovery, agent personas, commands, evals,
            and the other skills. Upstream has no NOTICE file. Shared
