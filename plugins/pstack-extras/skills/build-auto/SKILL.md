@@ -21,7 +21,7 @@ The implementer uses the `feature, refactoring` role. The reviewer uses the `jud
 
 Use the first matching line, in this order.
 
-1. The project sheet the runtime already loads. On Claude Code that is `.claude/pstack-models.md` when `CLAUDE.md` includes it. On Codex that is `$CODEX_HOME/pstack-models.md`, or `~/.codex/pstack-models.md` when `CODEX_HOME` is unset. A file copied from `profiles/` is a project sheet.
+1. The project sheet the runtime already loads. On Claude Code that is `.claude/pstack-models.md` when `CLAUDE.md`, or `AGENTS.md` when there is no `CLAUDE.md`, includes it. On Codex that is `$CODEX_HOME/pstack-models.md`, or `~/.codex/pstack-models.md` when `CODEX_HOME` is unset. A file copied from `profiles/` is a project sheet.
 2. The Models section of `plugins/pstack/skills/poteto-mode/SKILL.md`. Those defaults are stamped from `plugins/pstack/models.json`.
 
 On Claude Code, pass the Claude family name as `model` on the `Agent` call. Pass an `@level` suffix as `effort`. `inherit-parent` and `auto` omit `model`.
