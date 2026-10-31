@@ -137,6 +137,18 @@ The agent-skills pin has a local patch recorded under Changes in `NOTICE`. `node
 
 A second sync with the same pins writes the same upstream bytes. A project picks up the catalog change when its pin moves to the new commit.
 
+## Thanks
+
+[Lauren Tan](https://github.com/cursor/plugins/tree/main/pstack) wrote pstack.
+[Michael Denyer](https://github.com/michael-denyer/pstack-claude) ported it to Claude Code as pstack-claude.
+[Cursor](https://github.com/cursor/plugins) wrote cursor-team-kit.
+[Jesse Vincent](https://github.com/obra/superpowers) wrote superpowers.
+[Matt Pocock](https://github.com/mattpocock/skills) wrote skills.
+[Addy Osmani](https://github.com/addyosmani/agent-skills) wrote agent-skills.
+[Vercel Labs](https://github.com/vercel-labs/agent-skills) wrote agent-skills.
+[Supabase](https://github.com/supabase/agent-skills) wrote agent-skills.
+NOTICE records the license for each of these.
+
 ## License
 
 Original work is MIT, see `LICENSE`. Vendored work keeps its own MIT license, see `NOTICE`.

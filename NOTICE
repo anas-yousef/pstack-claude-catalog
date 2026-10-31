@@ -1,8 +1,9 @@
 pstack-claude-catalog
 Copyright (c) 2026 Anas Yousef. MIT License, see LICENSE.
 
-The root LICENSE covers original work only: README.md, NOTICE, sources.json,
-.claude-plugin/marketplace.json, plugins/pstack-extras/.claude-plugin/plugin.json,
+The root LICENSE covers original work only: LICENSE, README.md, NOTICE,
+sources.json, .claude-plugin/marketplace.json,
+plugins/pstack-extras/.claude-plugin/plugin.json,
 plugins/pstack-extras/.codex-plugin/plugin.json,
 plugins/pstack-extras/commands/, plugins/pstack-extras/skills/build-auto/,
 plugins/pstack-extras/skills/committed-browser-proof/,
@@ -10,8 +11,8 @@ plugins/pstack-extras/skills/greenfield/,
 plugins/pstack-extras/skills/legacy-critique/,
 plugins/pstack-extras/skills/local-supabase/,
 plugins/pstack-extras/skills/merge-reviews/,
-plugins/pstack-extras/skills/prd/, profiles/, tools/sync.mjs,
-and tools/sync.test.mjs.
+plugins/pstack-extras/skills/prd/, profiles/, scripts/, tools/init.mjs,
+tools/init.test.mjs, tools/sync.mjs, and tools/sync.test.mjs.
 
 Everything else is vendored from the projects below under their own MIT
 licenses, byte for byte, except the agent-skills substitutions under Changes.
