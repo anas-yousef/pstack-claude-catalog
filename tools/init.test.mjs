@@ -13,7 +13,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const INIT = path.join(ROOT, 'tools', 'init.mjs')
 const MAIN = 'bfd48a1b300dbad50f6ea2e30f4a3edbe9737943'
 const CHECK_RULES = ['Bash(node scripts/check-pstack.mjs:*)']
-const MARKER = '<!-- pstack:begin -->\n@.claude/pstack-models.md\nModel sheet: .claude/pstack-models.md. Run node scripts/check-pstack.mjs as a single command (no chaining); it prints its own status.\n<!-- pstack:end -->\n'
+const MARKER = '<!-- pstack:begin -->\nFor pstack skills, Codex must read .codex/pstack-models.md; Claude must read .claude/pstack-models.md. Use your runtime\'s sheet for role overrides.\nRun node scripts/check-pstack.mjs as a single command (no chaining); it prints its own status.\n<!-- pstack:end -->\n'
+const CLAUDE_MARKER = '<!-- pstack:begin -->\n@.claude/pstack-models.md\nModel sheet: .claude/pstack-models.md.\nRun node scripts/check-pstack.mjs as a single command (no chaining); it prints its own status.\n<!-- pstack:end -->\n'
 
 function git(args, cwd) {
   const result = spawnSync('git', args, { cwd, encoding: 'utf8' })
@@ -175,7 +176,7 @@ test('a new repo installs both sheets and records the session model', (t) => {
   assert.match(homeConfig, /\[mcp_servers\.local\]\ncommand = "node"/)
   assert.doesNotMatch(agentsMd, /gpt-6/)
 
-  assert.deepEqual(readdirSync(path.join(repo, '.codex')).sort(), ['config.toml'])
+  assert.deepEqual(readdirSync(path.join(repo, '.codex')).sort(), ['config.toml', 'pstack-models.md'])
   const projectConfig = readFileSync(path.join(repo, '.codex', 'config.toml'), 'utf8')
   assert.match(projectConfig, /\[plugins\."pstack@pstack-claude-catalog"\]\nenabled = true/)
   assert.match(projectConfig, /\[plugins\."pstack-extras@pstack-claude-catalog"\]\nenabled = true/)
@@ -209,7 +210,7 @@ test('an AGENTS.md-only repo gets one pstack section and no CLAUDE.md', (t) => {
   assert.equal(readFileSync(path.join(repo, 'AGENTS.md'), 'utf8'), agentsMd)
 })
 
-test('an AGENTS.md include near the top stays beside the block include', (t) => {
+test('an AGENTS.md include outside the managed block stays untouched', (t) => {
   const { home, repo } = fresh(t)
   const agentsBefore = '# Agents\n\n@.claude/pstack-models.md\n\nKeep this.\n'
   writeFileSync(path.join(repo, 'AGENTS.md'), agentsBefore)
@@ -218,7 +219,7 @@ test('an AGENTS.md include near the top stays beside the block include', (t) => 
   assert.equal(init.stdout, '')
   assert.equal(existsSync(path.join(repo, 'CLAUDE.md')), false)
   const agentsMd = readFileSync(path.join(repo, 'AGENTS.md'), 'utf8')
-  assert.equal((agentsMd.match(/^@\.claude\/pstack-models\.md$/gm) || []).length, 2)
+  assert.equal((agentsMd.match(/^@\.claude\/pstack-models\.md$/gm) || []).length, 1)
   assert.ok(agentsMd.endsWith(`\n${MARKER}`))
   const again = pipeInit(repo, home)
   assert.equal(again.status, 0, again.stderr)
@@ -257,7 +258,7 @@ test('an existing repo keeps its docs and product skills', (t) => {
 
   const claudeMd = readFileSync(path.join(repo, 'CLAUDE.md'), 'utf8')
   const agentsMd = readFileSync(path.join(repo, 'AGENTS.md'), 'utf8')
-  assert.ok(claudeMd.endsWith(`\n\n${MARKER}`))
+  assert.ok(claudeMd.endsWith(`\n\n${CLAUDE_MARKER}`))
   assert.ok(agentsMd.endsWith(`\n\n${MARKER}`))
   assert.doesNotMatch(claudeMd, /AGENTS\.md/)
   assert.doesNotMatch(agentsMd, /CLAUDE\.md/)
@@ -318,6 +319,48 @@ test('flags select the pin and a bad profile writes nothing', (t) => {
   assert.notEqual(bad.status, 0)
   assert.equal(existsSync(path.join(other, '.claude', 'pstack-claude-pin.json')), false)
   assert.match(bad.stderr, /plain slugs/)
+})
+
+test('selected role sheets stay separate and offer a per-chat profile override', (t) => {
+  const { home, repo } = fresh(t)
+  writeFileSync(path.join(repo, 'CLAUDE.md'), '# Product\n')
+  const init = pipeInit(repo, home, ['--profile', 'lean', '--codex-profile', 'codex-design-heavy-extra'])
+  assert.equal(init.status, 0, init.stderr)
+  const pin = readPin(repo)
+  const codex = readFileSync(path.join(repo, '.codex', 'pstack-models.md'), 'utf8')
+  const claude = readFileSync(path.join(repo, '.claude', 'pstack-models.md'), 'utf8')
+  for (const [sheet, profile, profiles] of [
+    [codex, pin.codexProfile, ['codex-balanced', 'codex-design-heavy', 'codex-design-heavy-extra', 'codex-lean']],
+    [claude, pin.profile, ['balanced', 'design-heavy', 'design-heavy-extra', 'lean', 'max']],
+  ]) {
+    const source = readFileSync(path.join(ROOT, 'profiles', `${profile}.md`), 'utf8')
+    assert.ok(sheet.includes(source), profile)
+    const guide = sheet.split('\n').find((line) => line.startsWith('Profiles:'))
+    assert.ok(guide, profile)
+    for (const name of profiles) assert.ok(guide.includes(name), name)
+    assert.ok(guide.includes('Use <profile> for this chat'))
+    assert.ok(guide.includes(`https://raw.githubusercontent.com/anas-yousef/pstack-claude-catalog/${pin.commit}/profiles/<profile>.md`))
+    assert.match(guide, /override.*role rows/)
+  }
+  assert.match(codex, /^judgment and prose: gpt-6-astra @xhigh$/m)
+  assert.match(claude, /^judgment and prose: sonnet @high$/m)
+  const agents = readFileSync(path.join(repo, 'AGENTS.md'), 'utf8')
+  assert.match(agents, /Codex.*\.codex\/pstack-models\.md/)
+  assert.match(agents, /Claude.*\.claude\/pstack-models\.md/)
+  assert.doesNotMatch(agents, /^@\.claude\/pstack-models\.md$/m)
+  assert.match(readFileSync(path.join(repo, 'CLAUDE.md'), 'utf8'), /^@\.claude\/pstack-models\.md$/m)
+
+  const again = pipeInit(repo, home)
+  assert.equal(again.status, 0, again.stderr)
+  assert.equal(readFileSync(path.join(repo, '.codex', 'pstack-models.md'), 'utf8'), codex)
+  assert.equal(readFileSync(path.join(repo, '.claude', 'pstack-models.md'), 'utf8'), claude)
+  const switched = pipeInit(repo, home, ['--codex-profile', 'codex-lean', '--profile', 'lean'])
+  assert.equal(switched.status, 0, switched.stderr)
+  const next = readFileSync(path.join(repo, '.codex', 'pstack-models.md'), 'utf8')
+  assert.match(next, /^Profile: codex-lean\./m)
+  assert.match(next, /^judgment and prose: gpt-6\.1-sol @high$/m)
+  assert.doesNotMatch(next, /^Profile: codex-design-heavy-extra\./m)
+  assert.equal(readFileSync(path.join(repo, '.claude', 'pstack-models.md'), 'utf8'), claude)
 })
 
 test('every sheet names its own main session', () => {
@@ -383,6 +426,7 @@ test('a role row edit does not change the main session', (t) => {
   const init = pipeInit(repo, home, [], { PSTACK_CATALOG: catalog })
   assert.equal(init.status, 0, init.stderr)
   assert.match(readFileSync(path.join(repo, '.claude', 'pstack-models.md'), 'utf8'), /^feature, refactoring: haiku @low$/m)
+  assert.match(readFileSync(path.join(repo, '.codex', 'pstack-models.md'), 'utf8'), /^feature, refactoring: gpt-6-luna @low$/m)
   assert.equal(existsSync(path.join(home, '.codex', 'pstack-models.md')), false)
   assert.equal(existsSync(path.join(home, '.codex', 'AGENTS.md')), false)
   assert.equal(settings(repo).model, 'sonnet')

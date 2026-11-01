@@ -127,18 +127,26 @@ function trustClaude(repo) {
   writeAtomic(file, next)
 }
 
+function withProfiles(sheet, pin, profiles) {
+  const url = `https://raw.githubusercontent.com/${githubSlug(pin.repo)}/${pin.commit}/profiles/<profile>.md`
+  return `${sheet.trimEnd()}\n\nProfiles: ${profiles.join(', ')}. For this chat only, say "Use <profile> for this chat"; read ${url} and override the installed role rows.\n`
+}
+
 export function install(root, pin, claudeSheet, codexSheet, marketplace) {
   const claudeDir = path.join(root, '.claude')
+  const codexDir = path.join(root, '.codex')
   mkdirSync(claudeDir, { recursive: true })
-  writeFileSync(path.join(claudeDir, 'pstack-models.md'), claudeSheet)
+  mkdirSync(codexDir, { recursive: true })
+  writeFileSync(path.join(claudeDir, 'pstack-models.md'), withProfiles(claudeSheet, pin, ['balanced', 'design-heavy', 'design-heavy-extra', 'lean', 'max']))
+  writeFileSync(path.join(codexDir, 'pstack-models.md'), withProfiles(codexSheet, pin, ['codex-balanced', 'codex-design-heavy', 'codex-design-heavy-extra', 'codex-lean']))
   writeSettings(path.join(claudeDir, 'settings.json'), sessionSettings(claudeSheet), pin, marketplace)
   const claudeMd = path.join(root, 'CLAUDE.md')
-  if (existsSync(claudeMd)) putPstack(claudeMd)
-  putPstack(path.join(root, 'AGENTS.md'))
+  if (existsSync(claudeMd)) putPstack(claudeMd, 'claude')
+  putPstack(path.join(root, 'AGENTS.md'), 'codex')
   const session = sessionSettings(codexSheet)
   const abs = path.resolve(root)
   const quoted = abs.replaceAll('\\', '\\\\').replaceAll('"', '\\"')
-  writeConfig(path.join(root, '.codex', 'config.toml'), {
+  writeConfig(path.join(codexDir, 'config.toml'), {
     root: { model: session.model, model_reasoning_effort: session.effort },
     tables: codexTables(pin, marketplace),
   })

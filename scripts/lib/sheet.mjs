@@ -37,10 +37,6 @@ export function sessionSettings(sheet) {
 
 const BEGIN = '<!-- pstack:begin -->'
 const END = '<!-- pstack:end -->'
-const BODY = [
-  '@.claude/pstack-models.md',
-  'Model sheet: .claude/pstack-models.md. Run node scripts/check-pstack.mjs as a single command (no chaining); it prints its own status.',
-].join('\n')
 
 function readOrEmpty(file) {
   try {
@@ -51,9 +47,15 @@ function readOrEmpty(file) {
   }
 }
 
-export function putPstack(file) {
+export function putPstack(file, runtime) {
   const current = readOrEmpty(file)
-  const block = `${BEGIN}\n${BODY}\n${END}\n`
+  const body = [
+    runtime === 'claude'
+      ? '@.claude/pstack-models.md\nModel sheet: .claude/pstack-models.md.'
+      : 'For pstack skills, Codex must read .codex/pstack-models.md; Claude must read .claude/pstack-models.md. Use your runtime\'s sheet for role overrides.',
+    'Run node scripts/check-pstack.mjs as a single command (no chaining); it prints its own status.',
+  ].join('\n')
+  const block = `${BEGIN}\n${body}\n${END}\n`
   const lines = current.split('\n')
   const start = lines.indexOf('## pstack')
   const end = start < 0 ? -1 : lines.findIndex((line, index) => index > start && /^#{1,6} /.test(line))

@@ -51,7 +51,7 @@ A PRD or a spec has no role line. That prose uses `judgment and prose`.
 
 ### Codex profiles
 
-`profiles/codex-balanced.md`, `profiles/codex-design-heavy.md`, `profiles/codex-design-heavy-extra.md`, and `profiles/codex-lean.md` are Codex sheets. Init reads the chosen sheet and writes its main session to `model` and `model_reasoning_effort` in the project's `.codex/config.toml`. The project `AGENTS.md` block keeps `@.claude/pstack-models.md` and names that sheet in plain text, so Codex can read it without a home copy.
+`profiles/codex-balanced.md`, `profiles/codex-design-heavy.md`, `profiles/codex-design-heavy-extra.md`, and `profiles/codex-lean.md` are Codex sheets. Init reads the chosen sheet and writes its main session to `model` and `model_reasoning_effort` in the project's `.codex/config.toml`. Init installs its role rows in `.codex/pstack-models.md`. The project `AGENTS.md` block tells Codex to read that sheet and Claude to read `.claude/pstack-models.md`; an existing `CLAUDE.md` keeps its Claude sheet include. Each installed sheet lists its available profiles and a one-line chat override: say `Use <profile> for this chat` to read that profile from the pinned catalog and override its role rows for the chat.
 
 | Profile | Mix |
 | --- | --- |
