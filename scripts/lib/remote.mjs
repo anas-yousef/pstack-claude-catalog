@@ -1,3 +1,4 @@
+// pstack-claude-catalog: managed consumer script
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'

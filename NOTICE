@@ -12,7 +12,8 @@ plugins/pstack-extras/skills/legacy-critique/,
 plugins/pstack-extras/skills/local-supabase/,
 plugins/pstack-extras/skills/merge-reviews/,
 plugins/pstack-extras/skills/prd/, profiles/, scripts/, tools/init.mjs,
-tools/init.test.mjs, tools/sync.mjs, and tools/sync.test.mjs.
+tools/init.test.mjs, tools/codex-init.test.mjs, tools/headless.mjs,
+tools/sync.mjs, and tools/sync.test.mjs.
 
 Everything else is vendored from the projects below under their own MIT
 licenses, byte for byte, except the agent-skills substitutions under Changes.
@@ -108,7 +109,9 @@ vercel-labs/agent-skills
            This commit publishes no LICENSE file, so third-party/ has no copy.
   Files:   plugins/pstack-extras/skills/vercel-react-best-practices
            (upstream skills/react-best-practices/, every file in that directory)
-  Changes: none.
+  Changes: AGENTS.md is renamed REFERENCE.md without changing its bytes.
+           SKILL.md and README.md link to the renamed compiled guide so it
+           remains available on demand instead of acting as nested instructions.
 
 supabase/agent-skills
   Source:  https://github.com/supabase/agent-skills (skills/)

@@ -24,5 +24,5 @@ architect runners: gpt-6-astra @xhigh, gpt-6.1-sol @high
 interrogate reviewers: gpt-6-astra @xhigh, gpt-6.1-sol @high, gpt-6.1-terra @high
 
 default effort: high
-The effort listed for a role is a minimum, and subagents and the main session must not run below it.
+Each subagent role row sets the minimum effort only for subagents assigned to that role. The `main session` row alone sets the main session model and effort at initialization. For example, a bug-fix subagent at @xhigh does not raise a main session configured at @high. `default effort` applies only to a row without an explicit @level. Explicit user model or effort overrides take precedence; this sheet does not change an already running session’s settings.
 panel vendors: any
