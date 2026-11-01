@@ -127,7 +127,7 @@ async function main() {
     const pin = { repo: REPO, commit: sha, profile, codexProfile, plugins: marketplace.plugins }
     mkdirSync(path.join(root, '.claude'), { recursive: true })
     writeFileSync(path.join(root, '.claude', 'pstack-claude-pin.json'), `${JSON.stringify(pin, null, 2)}\n`)
-    install.install(root, pin, claudeSheet, codexSheet, marketplace.name)
+    await install.install(root, pin, claudeSheet, codexSheet, marketplace.name)
   } finally {
     loaded.cleanup()
   }

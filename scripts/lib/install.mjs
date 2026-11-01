@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import path from 'node:path'
 import { githubSlug } from './remote.mjs'
@@ -115,7 +115,6 @@ function writeAtomic(file, text) {
 function trustClaude(repo) {
   const file = claudeFile()
   const { raw, parsed } = readClaude(file)
-  if (!asObject(parsed.projects) || Array.isArray(parsed.projects)) parsed.projects = {}
   parsed.projects = asObject(parsed.projects)
   const entry = asObject(parsed.projects[repo])
   entry.hasTrustDialogAccepted = true
@@ -129,20 +128,37 @@ function trustClaude(repo) {
 
 function withProfiles(sheet, pin, profiles) {
   const url = `https://raw.githubusercontent.com/${githubSlug(pin.repo)}/${pin.commit}/profiles/<profile>.md`
-  return `${sheet.trimEnd()}\n\nProfiles: ${profiles.join(', ')}. For this chat only, say "Use <profile> for this chat"; read ${url} and override the installed role rows.\n`
+  return `${sheet.trimEnd()}\n\nProfiles: ${profiles.join(', ')}. For this chat only, say "Use <profile> for this chat"; fetch ${url} over the network and override the installed role rows.\n`
 }
 
-export function install(root, pin, claudeSheet, codexSheet, marketplace) {
+async function profileNames(pin) {
+  let names
+  if (process.env.PSTACK_CATALOG) {
+    names = readdirSync(path.join(process.env.PSTACK_CATALOG, 'profiles'), { withFileTypes: true })
+      .filter((entry) => entry.isFile()).map((entry) => entry.name)
+  } else {
+    const api = process.env.PSTACK_API || 'https://api.github.com'
+    const response = await fetch(`${api}/repos/${githubSlug(pin.repo)}/contents/profiles?ref=${pin.commit}`, {
+      headers: { 'User-Agent': 'pstack-claude-catalog' },
+    })
+    if (!response.ok) throw new Error(`cannot list profiles at ${pin.commit}`)
+    names = (await response.json()).filter((entry) => entry.type === 'file').map((entry) => entry.name)
+  }
+  return names.filter((name) => name.endsWith('.md')).map((name) => name.slice(0, -3)).sort()
+}
+
+export async function install(root, pin, claudeSheet, codexSheet, marketplace) {
+  const profiles = await profileNames(pin)
   const claudeDir = path.join(root, '.claude')
   const codexDir = path.join(root, '.codex')
   mkdirSync(claudeDir, { recursive: true })
   mkdirSync(codexDir, { recursive: true })
-  writeFileSync(path.join(claudeDir, 'pstack-models.md'), withProfiles(claudeSheet, pin, ['balanced', 'design-heavy', 'design-heavy-extra', 'lean', 'max']))
-  writeFileSync(path.join(codexDir, 'pstack-models.md'), withProfiles(codexSheet, pin, ['codex-balanced', 'codex-design-heavy', 'codex-design-heavy-extra', 'codex-lean']))
+  writeFileSync(path.join(claudeDir, 'pstack-models.md'), withProfiles(claudeSheet, pin, profiles.filter((name) => !name.startsWith('codex-'))))
+  writeFileSync(path.join(codexDir, 'pstack-models.md'), withProfiles(codexSheet, pin, profiles.filter((name) => name.startsWith('codex-'))))
   writeSettings(path.join(claudeDir, 'settings.json'), sessionSettings(claudeSheet), pin, marketplace)
   const claudeMd = path.join(root, 'CLAUDE.md')
   if (existsSync(claudeMd)) putPstack(claudeMd, 'claude')
-  putPstack(path.join(root, 'AGENTS.md'), 'codex')
+  putPstack(path.join(root, 'AGENTS.md'), existsSync(claudeMd) ? 'codex' : 'both')
   const session = sessionSettings(codexSheet)
   const abs = path.resolve(root)
   const quoted = abs.replaceAll('\\', '\\\\').replaceAll('"', '\\"')

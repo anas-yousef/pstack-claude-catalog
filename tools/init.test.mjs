@@ -15,6 +15,7 @@ const MAIN = 'bfd48a1b300dbad50f6ea2e30f4a3edbe9737943'
 const CHECK_RULES = ['Bash(node scripts/check-pstack.mjs:*)']
 const MARKER = '<!-- pstack:begin -->\nFor pstack skills, Codex must read .codex/pstack-models.md; Claude must read .claude/pstack-models.md. Use your runtime\'s sheet for role overrides.\nRun node scripts/check-pstack.mjs as a single command (no chaining); it prints its own status.\n<!-- pstack:end -->\n'
 const CLAUDE_MARKER = '<!-- pstack:begin -->\n@.claude/pstack-models.md\nModel sheet: .claude/pstack-models.md.\nRun node scripts/check-pstack.mjs as a single command (no chaining); it prints its own status.\n<!-- pstack:end -->\n'
+const COMBINED_MARKER = MARKER.replace('Run node', '@.claude/pstack-models.md\nModel sheet: .claude/pstack-models.md.\nRun node')
 
 function git(args, cwd) {
   const result = spawnSync('git', args, { cwd, encoding: 'utf8' })
@@ -39,6 +40,7 @@ function childEnv(home, extraEnv = {}) {
   delete env.CODEX_HOME
   if (!Object.hasOwn(extraEnv, 'PSTACK_CATALOG')) delete env.PSTACK_CATALOG
   if (!Object.hasOwn(extraEnv, 'PSTACK_PROFILE')) delete env.PSTACK_PROFILE
+  if (!Object.hasOwn(extraEnv, 'PSTACK_API')) delete env.PSTACK_API
   return env
 }
 
@@ -135,7 +137,8 @@ test('a new repo installs both sheets and records the session model', (t) => {
   assert.equal(existsSync(path.join(repo, 'CLAUDE.md')), false)
   const agentsMd = readFileSync(path.join(repo, 'AGENTS.md'), 'utf8')
   assert.equal((agentsMd.match(/^## pstack$/gm) || []).length, 0)
-  assert.equal(agentsMd, MARKER)
+  assert.equal(agentsMd, COMBINED_MARKER)
+  assert.equal((agentsMd.match(/^@\.claude\/pstack-models\.md$/gm) || []).length, 1)
   assert.doesNotMatch(agentsMd, /CLAUDE\.md/)
   assert.match(readFileSync(path.join(repo, '.claude', 'pstack-models.md'), 'utf8'), /^Profile: balanced\./m)
   assert.deepEqual(readdirSync(path.join(repo, 'scripts', 'lib')).sort(), ['pin.mjs', 'remote.mjs'])
@@ -203,7 +206,8 @@ test('an AGENTS.md-only repo gets one pstack section and no CLAUDE.md', (t) => {
   assert.equal(init.stdout, '')
   assert.equal(existsSync(path.join(repo, 'CLAUDE.md')), false)
   const agentsMd = readFileSync(path.join(repo, 'AGENTS.md'), 'utf8')
-  assert.equal(agentsMd, `${agentsBefore}\n${MARKER}`)
+  assert.equal(agentsMd, `${agentsBefore}\n${COMBINED_MARKER}`)
+  assert.equal((agentsMd.match(/^@\.claude\/pstack-models\.md$/gm) || []).length, 1)
   assert.doesNotMatch(agentsMd, /CLAUDE\.md/)
   const again = pipeInit(repo, home)
   assert.equal(again.status, 0, again.stderr)
@@ -220,10 +224,28 @@ test('an AGENTS.md include outside the managed block stays untouched', (t) => {
   assert.equal(existsSync(path.join(repo, 'CLAUDE.md')), false)
   const agentsMd = readFileSync(path.join(repo, 'AGENTS.md'), 'utf8')
   assert.equal((agentsMd.match(/^@\.claude\/pstack-models\.md$/gm) || []).length, 1)
-  assert.ok(agentsMd.endsWith(`\n${MARKER}`))
+  assert.equal(agentsMd, `${agentsBefore}\n${COMBINED_MARKER.replace('@.claude/pstack-models.md\n', '')}`)
   const again = pipeInit(repo, home)
   assert.equal(again.status, 0, again.stderr)
   assert.equal(readFileSync(path.join(repo, 'AGENTS.md'), 'utf8'), agentsMd)
+})
+
+test('an old AGENTS.md pstack block gains exactly one Claude include', (t) => {
+  for (const block of [MARKER, COMBINED_MARKER, '## pstack\n\n@.claude/pstack-models.md\nOld instructions.\n']) {
+    const { home, repo } = fresh(t)
+    writeFileSync(path.join(repo, 'AGENTS.md'), `# Agents\n\n${block}\n## Product\nKeep this.\n`)
+    const init = pipeInit(repo, home)
+    assert.equal(init.status, 0, init.stderr)
+    assert.equal(existsSync(path.join(repo, 'CLAUDE.md')), false)
+    const agentsMd = readFileSync(path.join(repo, 'AGENTS.md'), 'utf8')
+    assert.equal((agentsMd.match(/^@\.claude\/pstack-models\.md$/gm) || []).length, 1)
+    assert.equal((agentsMd.match(/<!-- pstack:begin -->/g) || []).length, 1)
+    assert.ok(agentsMd.includes(COMBINED_MARKER))
+    assert.match(agentsMd, /^## Product\nKeep this\.$/m)
+    const again = pipeInit(repo, home)
+    assert.equal(again.status, 0, again.stderr)
+    assert.equal(readFileSync(path.join(repo, 'AGENTS.md'), 'utf8'), agentsMd)
+  }
 })
 
 test('an existing repo keeps its docs and product skills', (t) => {
@@ -262,6 +284,8 @@ test('an existing repo keeps its docs and product skills', (t) => {
   assert.ok(agentsMd.endsWith(`\n\n${MARKER}`))
   assert.doesNotMatch(claudeMd, /AGENTS\.md/)
   assert.doesNotMatch(agentsMd, /CLAUDE\.md/)
+  assert.equal((claudeMd.match(/^@\.claude\/pstack-models\.md$/gm) || []).length, 1)
+  assert.doesNotMatch(agentsMd, /^@\.claude\/pstack-models\.md$/m)
   assert.doesNotMatch(claudeMd, /This repo pins/)
   assert.doesNotMatch(agentsMd, /This repo pins/)
   assert.equal(readFileSync(skill, 'utf8'), 'product skill\n')
@@ -337,10 +361,11 @@ test('selected role sheets stay separate and offer a per-chat profile override',
     assert.ok(sheet.includes(source), profile)
     const guide = sheet.split('\n').find((line) => line.startsWith('Profiles:'))
     assert.ok(guide, profile)
-    for (const name of profiles) assert.ok(guide.includes(name), name)
+    assert.ok(guide.startsWith(`Profiles: ${profiles.join(', ')}.`))
     assert.ok(guide.includes('Use <profile> for this chat'))
     assert.ok(guide.includes(`https://raw.githubusercontent.com/anas-yousef/pstack-claude-catalog/${pin.commit}/profiles/<profile>.md`))
     assert.match(guide, /override.*role rows/)
+    assert.match(guide, /fetch.*over the network/)
   }
   assert.match(codex, /^judgment and prose: gpt-6-astra @xhigh$/m)
   assert.match(claude, /^judgment and prose: sonnet @high$/m)
@@ -361,6 +386,29 @@ test('selected role sheets stay separate and offer a per-chat profile override',
   assert.match(next, /^judgment and prose: gpt-6\.1-sol @high$/m)
   assert.doesNotMatch(next, /^Profile: codex-design-heavy-extra\./m)
   assert.equal(readFileSync(path.join(repo, '.claude', 'pstack-models.md'), 'utf8'), claude)
+})
+
+test('profile lists follow the catalog directory', (t) => {
+  const { home, repo } = fresh(t)
+  const catalog = mkdtempSync(path.join(tmpdir(), 'pstack-cat-'))
+  t.after(() => rmSync(catalog, { recursive: true, force: true }))
+  for (const rel of ['profiles', 'scripts', '.claude-plugin']) {
+    cpSync(path.join(ROOT, rel), path.join(catalog, rel), { recursive: true })
+  }
+  writeFileSync(path.join(catalog, 'profiles', 'future.md'), 'new Claude profile\n')
+  writeFileSync(path.join(catalog, 'profiles', 'codex-future.md'), 'new Codex profile\n')
+  writeFileSync(path.join(catalog, 'profiles', 'notes.txt'), 'not a profile\n')
+  mkdirSync(path.join(catalog, 'profiles', 'directory.md'))
+  rmSync(path.join(catalog, 'profiles', 'max.md'))
+  const init = pipeInit(repo, home, ['--commit', MAIN], { PSTACK_CATALOG: catalog })
+  assert.equal(init.status, 0, init.stderr)
+  for (const [runtime, expected] of [
+    ['claude', 'balanced, design-heavy, design-heavy-extra, future, lean'],
+    ['codex', 'codex-balanced, codex-design-heavy, codex-design-heavy-extra, codex-future, codex-lean'],
+  ]) {
+    const sheet = readFileSync(path.join(repo, `.${runtime}`, 'pstack-models.md'), 'utf8')
+    assert.ok(sheet.includes(`Profiles: ${expected}.`))
+  }
 })
 
 test('every sheet names its own main session', () => {
@@ -604,7 +652,8 @@ test('migration stops at the next heading and markers replace only their span', 
   const migrated = readFileSync(agentsFile, 'utf8')
   assert.match(migrated, /# Notes\n\n# Deployment\n\nship it\n/)
   assert.equal((migrated.match(/^## pstack$/gm) || []).length, 0)
-  assert.ok(migrated.endsWith(`\n${MARKER}`))
+  assert.ok(migrated.endsWith(`\n${COMBINED_MARKER}`))
+  assert.equal((migrated.match(/^@\.claude\/pstack-models\.md$/gm) || []).length, 1)
   writeFileSync(agentsFile, '# Notes\n\n## pstack\n\nstale section\n\n# Deployment\n\nship it\n\n<!-- pstack:begin -->\nstale\n<!-- pstack:end -->\n')
   const again = pipeInit(repo, home)
   assert.equal(again.status, 0, again.stderr)
@@ -612,7 +661,8 @@ test('migration stops at the next heading and markers replace only their span', 
   assert.match(kept, /^## pstack$/m)
   assert.match(kept, /stale section/)
   assert.match(kept, /# Deployment\n\nship it\n/)
-  assert.ok(kept.includes(MARKER))
+  assert.ok(kept.includes(COMBINED_MARKER))
+  assert.equal((kept.match(/^@\.claude\/pstack-models\.md$/gm) || []).length, 1)
   assert.doesNotMatch(kept, /<!-- pstack:begin -->\nstale\n/)
 })
 
@@ -680,8 +730,16 @@ test('piped init loads every lib from the selected commit', { timeout: 60000 }, 
   const { home, repo } = fresh(t)
   const sha = '0123456789abcdef0123456789abcdef01234567'
   const hits = []
+  const profileRefs = []
   const server = createServer((req, res) => {
-    const pathname = new URL(req.url, 'http://127.0.0.1').pathname
+    const url = new URL(req.url, 'http://127.0.0.1')
+    const { pathname } = url
+    if (pathname === '/repos/anas-yousef/pstack-claude-catalog/contents/profiles') {
+      profileRefs.push(url.searchParams.get('ref'))
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify(readdirSync(path.join(ROOT, 'profiles')).map((name) => ({ name, type: 'file' }))))
+      return
+    }
     hits.push(pathname)
     const match = /^\/([^/]+)\/(.+)$/.exec(pathname)
     if (!match) {
@@ -709,6 +767,7 @@ test('piped init loads every lib from the selected commit', { timeout: 60000 }, 
   const init = await pipeInitAsync(repo, home, ['--commit', sha], {
     PSTACK_CATALOG: '',
     PSTACK_RAW: `http://127.0.0.1:${port}`,
+    PSTACK_API: `http://127.0.0.1:${port}`,
   })
   assert.equal(init.status, 0, `${init.stderr}\n${hits.join('\n')}`)
   assert.ok(hits.length > 0)
@@ -719,6 +778,7 @@ test('piped init loads every lib from the selected commit', { timeout: 60000 }, 
   assert.equal(count('.claude-plugin/marketplace.json'), 1)
   assert.equal(count('profiles/balanced.md'), 1)
   assert.equal(count('profiles/codex-balanced.md'), 1)
+  assert.deepEqual(profileRefs, [sha])
   const pin = readPin(repo)
   assert.equal(pin.commit, sha)
   assert.deepEqual(readdirSync(path.join(repo, 'scripts', 'lib')).sort(), ['pin.mjs', 'remote.mjs'])
@@ -726,6 +786,7 @@ test('piped init loads every lib from the selected commit', { timeout: 60000 }, 
   const again = await pipeInitAsync(repo, home, [], {
     PSTACK_CATALOG: '',
     PSTACK_RAW: `http://127.0.0.1:${port}`,
+    PSTACK_API: `http://127.0.0.1:${port}`,
   })
   const rest = hits.slice(marked)
   assert.equal(again.status, 0, `${again.stderr}\n${rest.join('\n')}`)
@@ -733,6 +794,7 @@ test('piped init loads every lib from the selected commit', { timeout: 60000 }, 
   const next = readPin(repo)
   assert.equal(next.profile, 'balanced')
   assert.equal(next.codexProfile, 'codex-balanced')
+  assert.deepEqual(profileRefs, [sha, next.commit])
   const body = rest.filter((hit) => hit !== '/main/scripts/lib/remote.mjs')
   assert.ok(body.every((hit) => hit.startsWith(`/${next.commit}/`)))
   assert.equal(body.filter((hit) => hit.endsWith('.claude-plugin/marketplace.json')).length, 1)

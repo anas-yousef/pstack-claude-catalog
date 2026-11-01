@@ -49,21 +49,23 @@ function readOrEmpty(file) {
 
 export function putPstack(file, runtime) {
   const current = readOrEmpty(file)
-  const body = [
-    runtime === 'claude'
-      ? '@.claude/pstack-models.md\nModel sheet: .claude/pstack-models.md.'
-      : 'For pstack skills, Codex must read .codex/pstack-models.md; Claude must read .claude/pstack-models.md. Use your runtime\'s sheet for role overrides.',
-    'Run node scripts/check-pstack.mjs as a single command (no chaining); it prints its own status.',
-  ].join('\n')
-  const block = `${BEGIN}\n${body}\n${END}\n`
+  const managed = /<!-- pstack:begin -->[\s\S]*?<!-- pstack:end -->\n?/
+  const hasBlock = current.includes(BEGIN) && current.includes(END)
   const lines = current.split('\n')
   const start = lines.indexOf('## pstack')
   const end = start < 0 ? -1 : lines.findIndex((line, index) => index > start && /^#{1,6} /.test(line))
-  const kept = (current.includes(BEGIN) && current.includes(END)
-    ? current.replace(/<!-- pstack:begin -->[\s\S]*?<!-- pstack:end -->\n?/, block)
+  const outside = hasBlock
+    ? current.replace(managed, '')
     : (start < 0 ? current : [...lines.slice(0, start), ...lines.slice(end < 0 ? lines.length : end)].join('\n'))
-  ).replace(/\s*$/, '')
-  const next = current.includes(BEGIN) && current.includes(END) ? `${kept}\n` : (kept ? `${kept}\n\n${block}` : block)
+  const body = [
+    runtime !== 'claude' ? 'For pstack skills, Codex must read .codex/pstack-models.md; Claude must read .claude/pstack-models.md. Use your runtime\'s sheet for role overrides.' : '',
+    runtime !== 'codex' && !/^@\.claude\/pstack-models\.md$/m.test(outside) ? '@.claude/pstack-models.md' : '',
+    runtime !== 'codex' ? 'Model sheet: .claude/pstack-models.md.' : '',
+    'Run node scripts/check-pstack.mjs as a single command (no chaining); it prints its own status.',
+  ].filter(Boolean).join('\n')
+  const block = `${BEGIN}\n${body}\n${END}\n`
+  const kept = (hasBlock ? current.replace(managed, block) : outside).trimEnd()
+  const next = hasBlock ? `${kept}\n` : (kept ? `${kept}\n\n${block}` : block)
   if (next === current) return
   mkdirSync(path.dirname(file), { recursive: true })
   writeFileSync(file, next)
