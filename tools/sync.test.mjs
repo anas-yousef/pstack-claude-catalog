@@ -385,3 +385,28 @@ function exists(root, rel) {
     return false
   }
 }
+
+test('an explicit upstream instruction-file mapping preserves it as an on-demand reference', (t) => {
+  const root = catalog(t)
+  const up = upstream(t)
+  seedFoo(up.src, 'Read REFERENCE.md when needed.\n')
+  const guide = 'Compiled reference\n'.repeat(8000)
+  writeFileSync(path.join(up.src, 'skills/foo/AGENTS.md'), guide)
+  const pin = commit(up.src, 'compiled guide')
+  push(up.src)
+  writeSources(root, [{
+    name: 'local', repo: up.repo, commit: pin,
+    paths: {
+      'skills/foo/SKILL.md': 'plugins/pstack-extras/skills/foo/SKILL.md',
+      'skills/foo/run.sh': 'plugins/pstack-extras/skills/foo/run.sh',
+      'skills/foo/AGENTS.md': 'plugins/pstack-extras/skills/foo/REFERENCE.md',
+    },
+  }])
+  assert.equal(run(root, []).status, 0)
+  const dest = path.join(root, 'plugins/pstack-extras/skills/foo')
+  assert.equal(readFileSync(path.join(dest, 'REFERENCE.md'), 'utf8'), guide)
+  assert.equal(readdirSync(dest).includes('AGENTS.md'), false)
+  const before = snapshot(root)
+  assert.equal(run(root, []).status, 0)
+  assert.deepEqual(snapshot(root), before)
+})

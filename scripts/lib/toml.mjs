@@ -21,15 +21,18 @@ function tableAt(text) {
 
 function tableName(line) {
   const match = /^\[\[?\s*([^[\]]*?)\s*\]\]?$/.exec(line.replace(/\s+#.*$/, '').trim())
-  return match ? match[1].trim() : ''
+  return match ? match[1].trim().replace(/"([A-Za-z0-9_-]+)"/g, '$1') : ''
 }
 
-function setRoot(head, keys) {
+function setRoot(head, keys, remove) {
   const chunks = head.split(/("""[\s\S]*?"""|'''[\s\S]*?''')/)
   const found = new Set()
   for (let index = 0; index < chunks.length; index += 2) {
     const newline = chunks[index].endsWith('\n')
-    const lines = chunks[index].split('\n')
+    const lines = chunks[index].split('\n').filter((line) => {
+      const match = /^([A-Za-z0-9_-]+)\s*=\s*["']([^"']*)["']\s*(?:#.*)?$/.exec(line.trim())
+      return !match || !Object.hasOwn(remove, match[1]) || remove[match[1]] !== match[2]
+    })
     if (newline) lines.pop()
     for (const [key, value] of Object.entries(keys)) {
       const at = lines.findIndex((line) => new RegExp(`^${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*=`).test(line.trim()))
@@ -51,6 +54,7 @@ function setRoot(head, keys) {
 function replaceTables(tail, tables) {
   const names = Object.keys(tables)
   if (names.length === 0) return tail
+  const byName = new Map(names.map((name) => [tableName(`[${name}]`), name]))
   const spans = tableAt(tail)
   let cursor = 0
   let next = ''
@@ -60,7 +64,7 @@ function replaceTables(tail, tables) {
     const end = index + 1 < spans.length ? spans[index + 1] : tail.length
     next += tail.slice(cursor, start)
     const lineEnd = tail.indexOf('\n', start)
-    const name = tableName(tail.slice(start, lineEnd === -1 ? tail.length : lineEnd))
+    const name = byName.get(tableName(tail.slice(start, lineEnd === -1 ? tail.length : lineEnd)))
     if (Object.hasOwn(tables, name)) {
       const lines = [`[${name}]`, ...Object.entries(tables[name]).map(([key, value]) => assign(key, value))]
       const trailing = tail.slice(start, end).match(/\n*$/)?.[0] ?? '\n'
@@ -85,7 +89,7 @@ export function writeConfig(file, spec = {}) {
     if (error.code !== 'ENOENT') throw error
   }
   const at = tableAt(text)[0] ?? text.length
-  const next = setRoot(text.slice(0, at), spec.root ?? {}) + replaceTables(text.slice(at), spec.tables ?? {})
+  const next = setRoot(text.slice(0, at), spec.root ?? {}, spec.removeRoot ?? {}) + replaceTables(text.slice(at), spec.tables ?? {})
   if (next === text) return
   mkdirSync(path.dirname(file), { recursive: true })
   writeFileSync(file, next)

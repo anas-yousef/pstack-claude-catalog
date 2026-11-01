@@ -1,91 +1,89 @@
 # pstack-claude-catalog
 
-A pinned Claude Code plugin marketplace. It holds [pstack-claude](https://github.com/michael-denyer/pstack-claude) as upstream ships it, plus the extra skills [pstack-grok](https://github.com/anas-yousef/pstack-grok) vendors for Cursor. The plugins keep the pstack-claude model defaults. `profiles/` holds optional per-role model mixes.
+A pinned Claude Code and Codex plugin marketplace. `plugins/pstack/` is [pstack-claude](https://github.com/michael-denyer/pstack-claude), byte for byte. `plugins/pstack-extras/` adds skills and playbooks. `NOTICE` lists sources, licenses, and local changes; `sources.json` pins upstream commits.
 
-## Plugins
+## Setup
 
-- **`pstack`** (`plugins/pstack/`). The pstack-claude plugin, byte for byte. It provides `/pstack:poteto-mode`, the `pstack:poteto-agent` and `pstack:comment-sicko` agents, the principles, and the session hook.
-- **`pstack-extras`** (`plugins/pstack-extras/`). Skills that pstack-claude does not ship:
-  - from cursor-team-kit: `check-compiler-errors`, `control-cli`, `control-ui`, `loop-on-ci`, `new-branch-and-pr`, `review-and-ship`, `run-smoke-tests`, and `verify-this`
-  - from superpowers: `verification-before-completion`, `systematic-debugging`, and `receiving-code-review`
-  - from mattpocock/skills: `domain-modeling`, `writing-for-agents`, `wizard`, and `grilling`
-  - from addyosmani/agent-skills: `spec-driven-development`, `planning-and-task-breakdown`, `incremental-implementation`, `documentation-and-adrs`, `shipping-and-launch`, `doubt-driven-development`, `performance-optimization`, `frontend-ui-engineering`, and `browser-testing-with-devtools`, plus `references/performance-checklist.md` and `references/accessibility-checklist.md`
-  - from vercel-labs/agent-skills: `vercel-react-best-practices`
-  - from supabase/agent-skills: `supabase` and `supabase-postgres-best-practices`
-
-Original lean skills may live in `pstack-extras` for Cursor and Claude alignment when `plugins/pstack/` must stay byte for byte with pstack-claude. `committed-browser-proof`, `local-supabase`, `build-auto`, `legacy-critique`, `prd`, `merge-reviews`, and `greenfield` are on the `ORIGINAL` list in `tools/sync.mjs`, along with `plugins/pstack-extras/commands/` and `plugins/pstack-extras/.codex-plugin/`, so the next sync keeps them. For a greenfield product that needs a database, auth, or row-level security, use `local-supabase`.
-
-poteto-mode is the single entry point. For a product or a large feature, poteto-mode invokes `build-auto`. A product that starts from an old repo follows `greenfield` first. That skill runs `legacy-critique`, then `merge-reviews`, then `prd`, then `build-auto`. `/critique`, `/prd`, `/merge-reviews`, `/spec`, and `/build` are the Claude commands. Codex loads the skills. The commands are the Claude wrappers. `/build auto` approves the plan and runs every pending task.
-
-`NOTICE` lists each source, its license, and what is left out. `sources.json` pins the upstream commits.
-
-## Use it from a project
+Run inside your project:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/anas-yousef/pstack-claude-catalog/main/tools/init.mjs | node -
 ```
 
-`--profile design-heavy-extra` also selects `codex-design-heavy-extra`. `--codex-profile` overrides that. `max` has no Codex sheet, so it uses `codex-balanced`. Claude plugins follow the catalog main, and Codex is pinned to the sha.
+Requires Node.js and Git. Install Claude Code and, if you use Codex, a Codex CLI with `codex plugin` support. Init checks CLI availability before writing project files. When Codex is absent, it prints a message and skips Codex files, trust, and plugin commands; Claude setup still completes. If Claude is absent, its settings and model sheet are prepared, and a message asks you to install Claude and rerun init for plugin installation.
 
-Claude applies `Bash(node scripts/check-pstack.mjs:*)` only after the workspace is trusted. The project block tells the agent to run exactly `node scripts/check-pstack.mjs`. Init sets `hasTrustDialogAccepted` for this repo in `~/.claude.json`.
+Init registers the Claude marketplace and runs `claude plugin install <plugin>@pstack-claude-catalog --scope project` for each plugin. For Codex, it configures the pinned marketplace, runs `codex plugin marketplace upgrade`, and explicitly installs each plugin with `codex plugin add`. These are headless commands from the official [Claude plugin reference](https://code.claude.com/docs/en/plugins/cli-reference) and [Codex developer-command reference](https://learn.chatgpt.com/docs/developer-commands#codex-plugin). A failed install reports the CLI error and exits nonzero; rerunning retries installation.
 
-Codex reads `model` and `model_reasoning_effort` from the project's `.codex/config.toml` after that project is trusted. Init sets `trust_level = "trusted"` for this repo in `~/.codex/config.toml`.
+Init installs separate Claude and Codex model sheets and sets each runtime's main session model. An existing independent `CLAUDE.md` imports `.claude/pstack-models.md`; `AGENTS.md` points Codex to `.codex/pstack-models.md`. When `CLAUDE.md` is absent or shares `AGENTS.md` through a symlink, `AGENTS.md` also keeps the Claude include exactly once. Init preserves the symlink and creates no missing `CLAUDE.md`. Existing project prose and unrelated settings stay.
 
-Inside Codex's read-only sandbox, `node scripts/check-pstack.mjs` has no network and prints `pstack: offline (exit 0)`.
+Permissions default to bypass, independently of the model profile:
 
-Run init again to refresh the copied scripts. Do not edit them.
+- `~/.claude/settings.json`: `permissions.defaultMode = "bypassPermissions"` (or `$CLAUDE_CONFIG_DIR/settings.json`). This user setting applies to every project on the machine. Claude [ignores bypass mode in project settings](https://code.claude.com/docs/en/settings#a-value-you-set-is-ignored), so init removes that obsolete project value. It also removes a project `defaultMode = "default"` during bypass setup: project settings have higher precedence and otherwise mask the user bypass. Explicit project modes such as `plan` remain intentional overrides.
+- `.codex/config.toml`: `approval_policy = "never"` and `sandbox_mode = "danger-full-access"`.
+
+Pass `--ask-permissions` to remove these bypass values from a previous init, including Claude's user setting. Other permission modes, allow/deny rules, and settings stay; `--ask-permissions` also preserves a project `default` mode. For example, append `--ask-permissions` after `node -` in the command above. Pass it on each init run that should use normal permission prompts.
+
+Init trusts this project in `~/.claude.json` and, when Codex is installed, `~/.codex/config.toml` (or `$CODEX_HOME/config.toml`) so the runtimes load its project settings on their first headless session. Per [Claude workspace trust](https://code.claude.com/docs/en/permissions#project-allow-rules-and-workspace-trust), init sets `projects["<repo-root>"].hasTrustDialogAccepted = true`; linked worktrees use the main checkout’s root. Codex trust uses the consumer checkout’s path, and its project `approval_policy` and `sandbox_mode` apply before `codex exec` starts ([configuration precedence](https://learn.chatgpt.com/docs/config-file/config-basic#configuration-precedence), [sandbox and approvals](https://learn.chatgpt.com/docs/agent-approvals-security)). Claude plugins follow catalog main; Codex plugins use the commit recorded in `.claude/pstack-claude-pin.json`, through the documented [`marketplaces.<name>.ref` setting](https://learn.chatgpt.com/docs/config-file/config-reference).
+
+Run the same command again to refresh. It keeps the selected profiles unless you pass profile flags. It installs `scripts/pstack-claude-check.mjs`, its two libraries, and a compatibility shim at `scripts/check-pstack.mjs` for existing CI and hooks. A foreign file at the legacy path stays untouched. Both checker commands keep their Bash allow rules. The command compares the installed pin with catalog main: `current` exits 0, `outdated` exits 1, and `offline` exits 0. It writes nothing. Pins written without a Codex profile default to `codex-balanced`; reading a missing or malformed profile fails.
+
+Script ownership uses exact SHA-256 hashes. `scripts/lib/owned.json` records shipped hashes and known historical versions with their source commits. Init records installed hashes in `.claude/pstack-claude-owned.json`; an upgrade accepts those exact bytes or a known release's hash. Edited or foreign files at required destinations stop init before any script is overwritten. To change a managed script in this catalog, retain its old hash under `previous`, update `sha256`, and run the manifest test.
+
+## Authentication and first-session proof
+
+Init installs configuration and plugins; it does not log you in. Authenticate before the first headless session:
+
+- Claude: run `claude auth login` (or launch `claude` and sign in) in the HOME you will use, then check `claude auth status`. [Claude’s auth docs](https://code.claude.com/docs/en/authentication#log-in-to-claude-code) describe this flow. Linux credentials live at `~/.claude/.credentials.json` (mode `0600`), or under `CLAUDE_CONFIG_DIR`; changing HOME does not carry your login with it.
+- Codex: supply `OPENAI_API_KEY` and run `printenv OPENAI_API_KEY | codex login --with-api-key` with shell tracing off, or run `codex login` for ChatGPT sign-in. Check `codex login status`. The [official auth docs](https://learn.chatgpt.com/docs/auth#sign-in-with-an-api-key) also describe [copying the auth cache](https://learn.chatgpt.com/docs/auth#fallback-authenticate-locally-and-copy-your-auth-cache) to a headless environment. Treat `auth.json` as a password.
+
+Run `node tools/headless.mjs` with authenticated Linux Claude/Codex caches and `OPENAI_API_KEY` present. This opt-in test uses fresh temporary Git consumers and HOME directories, copies only credential files without displaying them, runs init once, then runs real `claude -p` and `codex exec` sessions with no permission flags. It checks actual checker tool output against the real remote, writes a unique file outside each repo, and reads Codex’s recorded sandbox/approval/model/effort. It covers a normal checkout, a project with an ordinary `default` permission mode, a linked worktree, and a separate API-key login HOME. The API-key case requires available API quota as well as valid authentication: a `Quota exceeded` inference response fails the proof even when login succeeded. Credentials and caches are deleted in `finally`; raw session stdout/stderr remains at the printed path. Any warning or permission denial fails the proof. Plugin installation uses a Git snapshot of the candidate catalog via the existing local-catalog test seam; the checker’s network request is not mocked. The temporary HOME defaults beneath the caller’s home because Codex rejects helper aliases under the OS temp directory; `PSTACK_PROOF_ROOT` can select another parent outside that directory.
 
 ## Model profiles
 
-pstack-claude reads its per-role models from a `pstack-models.md` sheet. With no sheet, every role runs on the defaults that `plugins/pstack/models.json` stamps into each skill. `profiles/` holds complete sheets with other mixes. Each role line names a model family and its own reasoning effort, as in `sonnet @high`, so two roles on the same model can run at different levels. Reasoning effort is how long the model thinks before it answers. A lower level spends fewer tokens per call. The `main session` row is not a role. It names the model and effort for the session itself. Setup reads that row and does not read a role row for the session.
+Pass `--profile <name>` to select a Claude sheet and its matching `codex-<name>` sheet. `--codex-profile <name>` selects the Codex sheet separately. `max` falls back to `codex-balanced`. `--commit <40-digit-sha>` selects a catalog commit.
 
-| Profile | Mix |
-| --- | --- |
-| `balanced` | Opus for most roles, Sonnet for feature work and workers, Fable for the strongest judgment. `high` by default, `xhigh` for bug-fix, perf-issue, the why synthesizer, and judges. Main session is Sonnet at `high`. |
-| `design-heavy` | Opus at `high` for judgment and prose, the strongest judgment, and the Opus seat on architect runners, arena judges, and interrogate reviewers. Sonnet at `high` for feature work, refactoring, and workers. Opus at `high` for bug-fix and perf-issue. Other roles match `balanced`, including the other panel seats. Main session is Sonnet at `high`. |
-| `design-heavy-extra` | The `design-heavy` mix, with those Opus design seats at `xhigh`. Bug-fix and perf-issue stay Opus at `high`. Main session is Opus at `high`. |
-| `lean` | Sonnet and Haiku, with Opus only for the strongest judgment. Haiku explores at `medium`. Sonnet works at `high`, and at `xhigh` for bug-fix and perf-issue. Main session is Sonnet at `high`. |
-| `max` | Opus and Fable at `xhigh`, and at `max` for bug-fix, perf-issue, the strongest judgment, judges, and design. Exploration and workers stay at `high`. Main session is Sonnet at `high`. |
+Each role row names a model and effort, such as `sonnet @high`. The separate `main session` row controls the session model and effort. Without an installed sheet, skills use their plugin defaults. The files in `profiles/` hold the complete role lists; every profile must cover every role.
 
-A PRD or a spec has no role line. That prose uses `judgment and prose`.
+| Claude profile | Mix | Main session |
+| --- | --- | --- |
+| `balanced` | Opus for most roles, Sonnet for feature work and workers, Fable for strongest judgment. | Sonnet at `high` |
+| `design-heavy` | Opus at `high` for design and judgment; Sonnet for feature work and workers. | Sonnet at `high` |
+| `design-heavy-extra` | `design-heavy` with the Opus design seats at `xhigh`. | Opus at `high` |
+| `lean` | Sonnet and Haiku, with Opus for strongest judgment. | Sonnet at `high` |
+| `max` | Opus and Fable at `xhigh`, or `max` for the hardest roles. | Sonnet at `high` |
 
-### Codex profiles
+| Codex profile | Mix | Main session |
+| --- | --- | --- |
+| `codex-balanced` | Sol for feature work and workers; Astra for bugs and judgment; Terra on panels. | Sol at `high` |
+| `codex-design-heavy` | Astra at `high` for design and judgment; Sol for feature work and workers. | Sol at `high` |
+| `codex-design-heavy-extra` | `codex-design-heavy` with the Astra design seats at `xhigh`. | Astra at `high` |
+| `codex-lean` | Sol for most roles; Astra for bugs and strongest judgment; Sol, Terra, and Luna on panels. | Sol at `high` |
 
-`profiles/codex-balanced.md`, `profiles/codex-design-heavy.md`, `profiles/codex-design-heavy-extra.md`, and `profiles/codex-lean.md` are Codex sheets. Init reads the chosen sheet and writes its main session to `model` and `model_reasoning_effort` in the project's `.codex/config.toml`. Init installs its role rows in `.codex/pstack-models.md`. The project `AGENTS.md` block tells Codex to read that sheet and Claude to read `.claude/pstack-models.md`; an existing `CLAUDE.md` keeps its Claude sheet include. Each installed sheet lists its available profiles and a one-line chat override: say `Use <profile> for this chat` to read that profile from the pinned catalog and override its role rows for the chat.
+A PRD or spec uses `judgment and prose`. Codex sheets set `panel vendors: any`. Each subagent role effort is a minimum only for subagents assigned that role. Only `main session` sets the main session model and effort during init; a bug-fix row at `@xhigh` does not raise a main session at `@high`. The actual session effort comes from [`model_reasoning_effort`](https://learn.chatgpt.com/docs/config-file/config-reference#model_reasoning_effort), subject to explicit user overrides; prose cannot reconfigure a running session. Each installed sheet lists available profiles and a chat override: say `Use <profile> for this chat` to load that profile from the pinned catalog for the chat.
 
-| Profile | Mix |
-| --- | --- |
-| `codex-balanced` | Sol for feature work, exploration, and workers. Astra for bug-fix, perf, and judgment, at `high`, and at `xhigh` where a role hunts an unknown cause or judges. Terra is the third seat on the arena and interrogate panels. Main session is Sol (`gpt-6.1-sol`) at `high`. |
-| `codex-design-heavy` | Astra at `high` for judgment and prose, the strongest judgment, and the Astra seat on architect runners, arena judges, and interrogate reviewers. Sol at `high` for feature work, refactoring, and workers. Astra at `high` for bug-fix and perf-issue. Other roles match `codex-balanced`. Main session is Sol (`gpt-6.1-sol`) at `high`. |
-| `codex-design-heavy-extra` | The `codex-design-heavy` mix, with those Astra design seats at `xhigh`. Bug-fix and perf-issue stay Astra at `high`. Main session is Astra (`gpt-6-astra`) at `high`. |
-| `codex-lean` | Sol at `high` for each single-model role other than bug-fix, perf-issue, and the strongest judgment, which use Astra at `high`. Panels use Sol, Terra, and Luna. Main session is Sol (`gpt-6.1-sol`) at `high`. |
+## Use
 
-Each Codex sheet includes `panel vendors: any`, because every Codex slug shares a `gpt-` prefix. Each sheet also says the effort on a role line is a minimum, and that subagents and the main session must not run below it. `panel vendors: any` stays in the sheet. Every profile must cover every role. This README is the only place that rule is recorded. The `main session` row is separate from those roles. Init writes it to `model` and `model_reasoning_effort` in the project's `.codex/config.toml`.
+Start with `/pstack:poteto-mode`. Products and large features use `build-auto`; a rebuild of an existing repo starts with `greenfield`. Claude also has `/critique`, `/prd`, `/merge-reviews`, `/spec`, and `/build`; Codex loads the corresponding skills. `/build auto` approves the plan and runs pending tasks.
 
-## Update
+## Maintain the catalog
 
-`node tools/sync.mjs --check` compares each pin in `sources.json` with the default branch of that remote. `--outdated` is the same check. The command prints one line per source and leaves every file in the tree unchanged. Exit 0 means every mapped path matches its pin, including when the branch tip has commits that leave those paths alone. The process exits 1 when a mapped path differs, which is the signal to bump that pin. It also exits 1 when it cannot read a remote.
+```sh
+node --test tools/*.test.mjs # includes real Claude/Codex first-run checks in temporary homes
+node tools/sync.mjs --check
+```
 
-1. Edit a commit in `sources.json`.
-2. Run `node tools/sync.mjs`. Pass `--from <name>=<checkout>` to use a clean local checkout at that commit instead of fetching.
-3. Review the diff, update the commit and file lists in `NOTICE`, and commit.
+`--check` (also `--outdated`) compares pinned upstream paths with each remote's default branch and writes nothing. Exit 0 means mapped paths have not changed; exit 1 means a mapped path changed or a remote could not be read.
 
-The agent-skills pin has a local patch recorded under Changes in `NOTICE`. `node tools/sync.mjs` restores the upstream sentences for that source. Reapply those substitutions before committing a refresh.
+To refresh upstream content:
 
-A second sync with the same pins writes the same upstream bytes. A project picks up the catalog change when its pin moves to the new commit.
+1. Edit the commit in `sources.json`.
+2. Run `node tools/sync.mjs`. Use `--from <name>=<checkout>` to read a local checkout at the pin.
+3. Reapply the agent-skills substitutions listed in `NOTICE`, review the diff, update `NOTICE`, and commit.
 
-## Thanks
+The sync tool preserves original extras and setup files. `plugins/pstack/` must remain identical to its upstream pin. In the Vercel extras skill, `sources.json` maps upstream `AGENTS.md` to `REFERENCE.md`; update its SKILL link after syncing, so the compiled guide stays an on-demand reference ([Cursor nested instruction rules](https://cursor.com/docs/rules#nested-agentsmd-support)).
 
-[Lauren Tan](https://github.com/cursor/plugins/tree/main/pstack) wrote pstack.
-[Michael Denyer](https://github.com/michael-denyer/pstack-claude) ported it to Claude Code as pstack-claude.
-[Cursor](https://github.com/cursor/plugins) wrote cursor-team-kit.
-[Jesse Vincent](https://github.com/obra/superpowers) wrote superpowers.
-[Matt Pocock](https://github.com/mattpocock/skills) wrote skills.
-[Addy Osmani](https://github.com/addyosmani/agent-skills) wrote agent-skills.
-[Vercel Labs](https://github.com/vercel-labs/agent-skills) wrote agent-skills.
-[Supabase](https://github.com/supabase/agent-skills) wrote agent-skills.
-NOTICE records the license for each of these.
+## Thanks and license
 
-## License
+[Lauren Tan](https://github.com/cursor/plugins/tree/main/pstack) wrote pstack; [Michael Denyer](https://github.com/michael-denyer/pstack-claude) ported it to Claude Code. Additional skills come from Cursor, Jesse Vincent, Matt Pocock, Addy Osmani, Vercel Labs, and Supabase.
 
-Original work is MIT, see `LICENSE`. Vendored work keeps its own MIT license, see `NOTICE`.
+Original work is MIT (`LICENSE`). Vendored work keeps its own MIT license; see `NOTICE`.

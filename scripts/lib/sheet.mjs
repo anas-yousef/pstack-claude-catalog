@@ -61,7 +61,7 @@ export function putPstack(file, runtime) {
     runtime !== 'claude' ? 'For pstack skills, Codex must read .codex/pstack-models.md; Claude must read .claude/pstack-models.md. Use your runtime\'s sheet for role overrides.' : '',
     runtime !== 'codex' && !/^@\.claude\/pstack-models\.md$/m.test(outside) ? '@.claude/pstack-models.md' : '',
     runtime !== 'codex' ? 'Model sheet: .claude/pstack-models.md.' : '',
-    'Run node scripts/check-pstack.mjs as a single command (no chaining); it prints its own status.',
+    'Run node scripts/pstack-claude-check.mjs as a single command (no chaining); it prints its own status.',
   ].filter(Boolean).join('\n')
   const block = `${BEGIN}\n${body}\n${END}\n`
   const kept = (hasBlock ? current.replace(managed, block) : outside).trimEnd()

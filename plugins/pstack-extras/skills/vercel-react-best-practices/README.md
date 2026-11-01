@@ -1,5 +1,8 @@
 # React Best Practices
 
+This catalog stores the compiled guide as `REFERENCE.md`. The upstream contributor commands below generate `AGENTS.md`; rename that output to `REFERENCE.md` before copying it into a catalog skill.
+
+
 A structured repository for creating and maintaining React Best Practices optimized for agents and LLMs.
 
 ## Structure

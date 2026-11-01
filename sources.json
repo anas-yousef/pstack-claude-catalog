@@ -76,7 +76,11 @@
       "repo": "https://github.com/vercel-labs/agent-skills",
       "commit": "1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62",
       "paths": {
-        "skills/react-best-practices/": "plugins/pstack-extras/skills/vercel-react-best-practices/"
+        "skills/react-best-practices/AGENTS.md": "plugins/pstack-extras/skills/vercel-react-best-practices/REFERENCE.md",
+        "skills/react-best-practices/README.md": "plugins/pstack-extras/skills/vercel-react-best-practices/README.md",
+        "skills/react-best-practices/SKILL.md": "plugins/pstack-extras/skills/vercel-react-best-practices/SKILL.md",
+        "skills/react-best-practices/metadata.json": "plugins/pstack-extras/skills/vercel-react-best-practices/metadata.json",
+        "skills/react-best-practices/rules/": "plugins/pstack-extras/skills/vercel-react-best-practices/rules/"
       }
     },
     {

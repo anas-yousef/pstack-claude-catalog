@@ -1,5 +1,41 @@
-[
-  "scripts/check-pstack.mjs",
-  "scripts/lib/pin.mjs",
-  "scripts/lib/remote.mjs"
-]
+{
+  "version": 1,
+  "files": {
+    "scripts/pstack-claude-check.mjs": {
+      "sha256": "346bed8b6953ba3d47a23d42152685c254f9c47c686a43d7690cacd560e13ca8",
+      "previous": []
+    },
+    "scripts/lib/pin.mjs": {
+      "sha256": "6355588fe0d1080d68e4bd4338fdd2dd70870531feb4c13e3aec2f3ac41d9085",
+      "previous": [
+        {
+          "sha256": "bc4b2f7584d7ecb0836b1fc31b951c152002d0b320c16d44779b590d698cbf73",
+          "commit": "713b4d2ae42fb285b06f87cf8f9c9b0e5074d41f"
+        },
+        {
+          "sha256": "db1a8c6dfb51ffcad73d96ecd90d6d17f9b52b9a0bf9e1abf8decf22abc907c7",
+          "commit": "b1042cada33d57b438826f838b208ae43002eccc"
+        }
+      ]
+    },
+    "scripts/lib/remote.mjs": {
+      "sha256": "cbb1e8b80a9be534544e00c9169d1017ad8608d4a2f953cf39b2ba3f4f9ec047",
+      "previous": [
+        {
+          "sha256": "0b0307c6492105133c24de6ee116ed039721a3b6c7a0425c34d43624dedeaee5",
+          "commit": "713b4d2ae42fb285b06f87cf8f9c9b0e5074d41f"
+        }
+      ]
+    },
+    "scripts/check-pstack.mjs": {
+      "sha256": "e44363ce257f1050679e93967557a8f79a6918af5701605cfe544cb5633ab99e",
+      "previous": [
+        {
+          "sha256": "54611bcfe19f8adcaeaee89dbab5d7fb1eade85d85b17a25c32c8190ce8536e3",
+          "commit": "713b4d2ae42fb285b06f87cf8f9c9b0e5074d41f"
+        }
+      ],
+      "optional": true
+    }
+  }
+}
