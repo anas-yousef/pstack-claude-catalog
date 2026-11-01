@@ -1,0 +1,5 @@
+[
+  "scripts/check-pstack.mjs",
+  "scripts/lib/pin.mjs",
+  "scripts/lib/remote.mjs"
+]

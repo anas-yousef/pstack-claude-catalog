@@ -1,5 +1,4 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
-import { homedir } from 'node:os'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
 const EFFORTS = new Set(['low', 'medium', 'high', 'xhigh', 'max'])
@@ -36,24 +35,38 @@ export function sessionSettings(sheet) {
   return { model: slug, effort }
 }
 
-export function agentsPaste(sheet) {
-  const lines = []
-  for (const line of sheet.split('\n')) {
-    if (/^default effort:\s+\S+/.test(line) || /^The effort listed for a role is a minimum\b/.test(line) || roleEntries(line)) {
-      lines.push(line)
-    }
+const BEGIN = '<!-- pstack:begin -->'
+const END = '<!-- pstack:end -->'
+
+function readOrEmpty(file) {
+  try {
+    return readFileSync(file, 'utf8')
+  } catch (error) {
+    if (error.code === 'ENOENT') return ''
+    throw error
   }
-  return lines.join('\n')
 }
 
-export function copyProfile(checkout, name, dest) {
-  const source = path.join(checkout, 'profiles', `${name}.md`)
-  if (!existsSync(source)) throw new Error(`no profile ${name} in the pinned catalog`)
-  mkdirSync(path.dirname(dest), { recursive: true })
-  copyFileSync(source, dest)
-  return readFileSync(dest, 'utf8')
-}
-
-export function codexHome() {
-  return process.env.CODEX_HOME || path.join(homedir(), '.codex')
+export function putPstack(file, runtime) {
+  const current = readOrEmpty(file)
+  const managed = /<!-- pstack:begin -->[\s\S]*?<!-- pstack:end -->\n?/
+  const hasBlock = current.includes(BEGIN) && current.includes(END)
+  const lines = current.split('\n')
+  const start = lines.indexOf('## pstack')
+  const end = start < 0 ? -1 : lines.findIndex((line, index) => index > start && /^#{1,6} /.test(line))
+  const outside = hasBlock
+    ? current.replace(managed, '')
+    : (start < 0 ? current : [...lines.slice(0, start), ...lines.slice(end < 0 ? lines.length : end)].join('\n'))
+  const body = [
+    runtime !== 'claude' ? 'For pstack skills, Codex must read .codex/pstack-models.md; Claude must read .claude/pstack-models.md. Use your runtime\'s sheet for role overrides.' : '',
+    runtime !== 'codex' && !/^@\.claude\/pstack-models\.md$/m.test(outside) ? '@.claude/pstack-models.md' : '',
+    runtime !== 'codex' ? 'Model sheet: .claude/pstack-models.md.' : '',
+    'Run node scripts/check-pstack.mjs as a single command (no chaining); it prints its own status.',
+  ].filter(Boolean).join('\n')
+  const block = `${BEGIN}\n${body}\n${END}\n`
+  const kept = (hasBlock ? current.replace(managed, block) : outside).trimEnd()
+  const next = hasBlock ? `${kept}\n` : (kept ? `${kept}\n\n${block}` : block)
+  if (next === current) return
+  mkdirSync(path.dirname(file), { recursive: true })
+  writeFileSync(file, next)
 }

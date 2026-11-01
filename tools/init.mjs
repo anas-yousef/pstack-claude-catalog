@@ -1,206 +1,135 @@
 #!/usr/bin/env node
-// Adopt this public catalog in the current repository.
-//
-//   curl -fsSL https://raw.githubusercontent.com/anas-yousef/pstack-claude-catalog/main/tools/init.mjs | node -
-//   node tools/init.mjs [--profile <name>] [--codex-profile <name>] [--commit <sha>]
-//
-// Writes .claude/pstack-claude-pin.json, copies scripts/setup-pstack-claude.mjs
-// and scripts/setup-pstack-codex.mjs with their helpers, writes
-// .codex/config.toml with the pinned plugins enabled, then runs both setup
-// scripts in this repository. Each script prints `sheet ok` when its sheet
-// passes. PSTACK_PROFILE selects the Claude profile when --profile is absent.
-// Setup writes the chosen sheet's main session row, not a role row.
+// curl -fsSL https://raw.githubusercontent.com/anas-yousef/pstack-claude-catalog/main/tools/init.mjs | node -
 
-import { spawn, spawnSync } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
+import { spawnSync } from 'node:child_process'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { pathToFileURL } from 'node:url'
+import { parseArgs } from 'node:util'
 
 const REPO = 'https://github.com/anas-yousef/pstack-claude-catalog'
-const DEFAULT_PROFILE = 'balanced'
-const DEFAULT_CODEX_PROFILE = 'codex-balanced'
-const SETUPS = [
-  'scripts/setup-pstack-claude.mjs',
-  'scripts/setup-pstack-codex.mjs',
-]
-const SHA = /^[0-9a-f]{40}$/
-const SLUG = /^[a-z0-9][a-z0-9-]*$/
 const USAGE = 'usage: node tools/init.mjs [--profile <name>] [--codex-profile <name>] [--commit <sha>]'
-const FILES = [
-  'scripts/setup-pstack-claude.mjs',
-  'scripts/setup-pstack-codex.mjs',
-  'scripts/lib/advisory.mjs',
-  'scripts/lib/clone.mjs',
-  'scripts/lib/codex-config.mjs',
-  'scripts/lib/pin.mjs',
-  'scripts/lib/sheet.mjs',
-  'scripts/lib/toml.mjs',
-]
+const LIBS = ['remote.mjs', 'pin.mjs', 'sheet.mjs', 'toml.mjs', 'install.mjs']
+const SLUG = /^[a-z0-9][a-z0-9-]*$/
+const RAW = 'https://raw.githubusercontent.com/anas-yousef/pstack-claude-catalog'
 
 function fail(message) {
   process.stderr.write(`${message}\n`)
   process.exit(1)
 }
 
-function gitEnv(blank) {
-  const env = { ...process.env }
-  for (const key of Object.keys(env)) {
-    if (
-      key === 'GIT_CONFIG_COUNT'
-      || key.startsWith('GIT_CONFIG_KEY_')
-      || key.startsWith('GIT_CONFIG_VALUE_')
-      || key === 'GH_TOKEN'
-      || key === 'GITHUB_TOKEN'
-      || key === 'GH_ENTERPRISE_TOKEN'
-    ) {
-      delete env[key]
-    }
-  }
-  env.GIT_TERMINAL_PROMPT = '0'
-  env.GIT_CONFIG_GLOBAL = blank
-  env.GIT_CONFIG_SYSTEM = blank
-  env.GIT_CONFIG_NOSYSTEM = '1'
-  env.GIT_CONFIG_COUNT = '1'
-  env.GIT_CONFIG_KEY_0 = 'credential.helper'
-  env.GIT_CONFIG_VALUE_0 = ''
-  return env
-}
-
-function catalogRoot() {
-  if (!import.meta.url.startsWith('file:')) return null
-  const file = fileURLToPath(import.meta.url)
-  if (path.basename(file) !== 'init.mjs') return null
-  return path.resolve(path.dirname(file), '..')
-}
-
-function parseArgs(argv) {
-  const fromEnv = process.env.PSTACK_PROFILE
-  let profile = fromEnv ? fromEnv : DEFAULT_PROFILE
-  let codexProfile = DEFAULT_CODEX_PROFILE
-  let commit = ''
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index]
-    if (arg === '--profile' || arg === '--codex-profile' || arg === '--commit') {
-      const value = argv[index + 1]
-      if (!value || value.startsWith('--')) fail(USAGE)
-      if (arg === '--profile') profile = value
-      if (arg === '--codex-profile') codexProfile = value
-      if (arg === '--commit') commit = value.toLowerCase()
-      index += 1
-      continue
-    }
+function argumentsFrom(argv) {
+  let values
+  try {
+    values = parseArgs({
+      args: argv,
+      options: {
+        profile: { type: 'string' },
+        'codex-profile': { type: 'string' },
+        commit: { type: 'string' },
+      },
+      strict: true,
+    }).values
+  } catch {
     fail(USAGE)
   }
-  if (!SLUG.test(profile) || !SLUG.test(codexProfile)) fail('profile names must be plain slugs')
-  if (commit && !SHA.test(commit)) fail('commit must be 40 hex characters')
+  const profile = values.profile || ''
+  const codexProfile = values['codex-profile'] || ''
+  const commit = (values.commit || '').toLowerCase()
+  if (commit && !/^[0-9a-f]{40}$/.test(commit)) fail('commit must be 40 hex characters')
+  if ((profile && !SLUG.test(profile)) || (codexProfile && !SLUG.test(codexProfile))) fail('profile names must be plain slugs')
   return { profile, codexProfile, commit }
 }
 
-function runSetup(script, args) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [script, ...args], { stdio: ['ignore', 'pipe', 'pipe'] })
-    const out = []
-    child.stdout.on('data', (chunk) => {
-      out.push(chunk)
-      process.stdout.write(chunk)
-    })
-    child.stderr.on('data', (chunk) => {
-      process.stderr.write(chunk)
-    })
-    child.on('error', reject)
-    child.on('close', (status) => {
-      const stdout = Buffer.concat(out).toString('utf8')
-      if (status !== 0) reject(new Error(`${path.basename(script)} exited ${status}`))
-      else if (!stdout.includes('sheet ok')) reject(new Error(`${path.basename(script)} sheet check failed`))
-      else resolve()
-    })
-  })
+function repoRoot() {
+  const result = spawnSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' })
+  const root = result.status === 0 ? result.stdout.trim() : ''
+  return root || process.cwd()
 }
 
-function mainSha() {
-  const blank = path.join(homedir(), '.cache', 'pstack-claude-catalog', 'gitconfig')
-  mkdirSync(path.dirname(blank), { recursive: true })
-  writeFileSync(blank, '')
-  const url = `${REPO}.git`
-  const result = spawnSync('git', ['ls-remote', url, 'refs/heads/main'], {
-    encoding: 'utf8',
-    env: gitEnv(blank),
-  })
-  if (result.status !== 0) fail(`cannot read main: ${(result.stderr || result.stdout || '').trim()}`)
-  const sha = (result.stdout || '').split('\n').map((line) => line.split('\t')[0]).find((item) => SHA.test(item))
-  if (!sha) fail(`no main commit at ${REPO}`)
-  return sha
+function libUrl(name) {
+  return process.env.PSTACK_CATALOG
+    ? new URL(name, pathToFileURL(path.join(process.env.PSTACK_CATALOG, 'scripts/lib/'))).href
+    : ''
 }
 
-async function profileAt(commit, name) {
-  const url = `https://raw.githubusercontent.com/anas-yousef/pstack-claude-catalog/${commit}/profiles/${name}.md`
-  const response = await fetch(url, { method: 'GET' })
-  if (response.status === 404) throw new Error(`no profile ${name} at ${commit}`)
-  if (!response.ok) throw new Error(`cannot read profile ${name} at ${commit}`)
-  await response.arrayBuffer()
-}
-
-async function textAt(url) {
-  const response = await fetch(url)
-  if (!response.ok) throw new Error(`cannot fetch ${url}`)
-  return response.text()
-}
-
-async function marketplaceAt(commit) {
-  const body = await textAt(`https://raw.githubusercontent.com/anas-yousef/pstack-claude-catalog/${commit}/.claude-plugin/marketplace.json`)
-  let json
+async function load(commit) {
+  const dir = mkdtempSync(path.join(tmpdir(), 'pstack-'))
+  const cleanup = () => rmSync(dir, { recursive: true, force: true })
   try {
-    json = JSON.parse(body)
-  } catch {
-    throw new Error(`marketplace.json at ${commit} is not JSON`)
+    let remote
+    if (libUrl('remote.mjs')) remote = await import(libUrl('remote.mjs'))
+    else {
+      const ref = commit || 'main'
+      const root = process.env.PSTACK_RAW || RAW
+      const response = await fetch(`${root}/${ref}/scripts/lib/remote.mjs`, { headers: { 'User-Agent': 'pstack-claude-catalog' } })
+      if (!response.ok) throw new Error(`cannot read scripts/lib/remote.mjs at ${ref}`)
+      writeFileSync(path.join(dir, 'bootstrap.mjs'), await response.text())
+      remote = await import(pathToFileURL(path.join(dir, 'bootstrap.mjs')).href)
+    }
+    const sha = commit || await remote.catalogMain(REPO)
+    if (!remote.SHA.test(sha)) throw new Error(commit ? 'commit must be 40 hex characters' : `no main commit at ${REPO}`)
+    const base = libUrl('remote.mjs')
+      ? pathToFileURL(path.join(process.env.PSTACK_CATALOG, 'scripts/lib/'))
+      : pathToFileURL(`${dir}/`)
+    if (!libUrl('remote.mjs')) {
+      for (const name of LIBS) {
+        writeFileSync(path.join(dir, name), await remote.fetchCatalogText(REPO, sha, `scripts/lib/${name}`))
+      }
+    }
+    return {
+      sha,
+      remote,
+      install: await import(new URL('install.mjs', base).href),
+      readPin: (await import(new URL('pin.mjs', base).href)).readPin,
+      cleanup,
+    }
+  } catch (error) {
+    cleanup()
+    throw error
   }
-  if (!json || typeof json.name !== 'string' || !/^[A-Za-z0-9_-]+$/.test(json.name)) {
-    throw new Error('marketplace.json needs a plain name')
-  }
-  if (!Array.isArray(json.plugins) || json.plugins.length === 0) throw new Error('marketplace.json needs plugins')
-  const plugins = json.plugins.map((plugin) => {
-    if (!plugin || typeof plugin.name !== 'string' || !SLUG.test(plugin.name)) throw new Error('marketplace plugin name is not a plain slug')
-    return plugin.name
-  })
-  return { name: json.name, plugins }
 }
 
-async function fileBytes(rel, commit, sourceRoot) {
-  if (sourceRoot) return readFileSync(path.join(sourceRoot, rel))
-  const body = await textAt(`https://raw.githubusercontent.com/anas-yousef/pstack-claude-catalog/${commit}/${rel}`)
-  return body
+async function sheet(remote, sha, name) {
+  try {
+    return await remote.fetchCatalogText(REPO, sha, `profiles/${name}.md`)
+  } catch (error) {
+    if (error.status === 404) return null
+    throw error
+  }
 }
 
 async function main() {
-  const { profile, codexProfile, commit: requested } = parseArgs(process.argv.slice(2))
-  const commit = requested || mainSha()
-  await profileAt(commit, profile)
-  await profileAt(commit, codexProfile)
-  const sourceRoot = catalogRoot()
-  const root = process.cwd()
-  for (const rel of FILES) {
-    const target = path.join(root, rel)
-    mkdirSync(path.dirname(target), { recursive: true })
-    writeFileSync(target, await fileBytes(rel, commit, sourceRoot))
-  }
-  const marketplace = await marketplaceAt(commit)
-  const pin = {
-    repo: REPO,
-    commit,
-    profile,
-    codexProfile,
-    plugins: marketplace.plugins,
-  }
-  const pinPath = path.join(root, '.claude', 'pstack-claude-pin.json')
-  mkdirSync(path.dirname(pinPath), { recursive: true })
-  writeFileSync(pinPath, `${JSON.stringify(pin, null, 2)}\n`)
-  const { codexTables } = await import(pathToFileURL(path.join(root, 'scripts/lib/codex-config.mjs')).href)
-  const { writeMerged } = await import(pathToFileURL(path.join(root, 'scripts/lib/toml.mjs')).href)
-  writeMerged(path.join(root, '.codex', 'config.toml'), { tables: codexTables(pin, marketplace.name) })
-  const setupArgs = ['--profile', profile, '--codex-profile', codexProfile]
-  for (const rel of SETUPS) {
-    await runSetup(path.join(root, rel), setupArgs)
+  const args = argumentsFrom(process.argv.slice(2))
+  const root = repoRoot()
+  const loaded = await load(args.commit)
+  const { remote, install, readPin } = loaded
+  try {
+    install.assertHomes()
+    const pinFile = path.join(root, '.claude', 'pstack-claude-pin.json')
+    const pinned = !args.profile && !args.codexProfile && existsSync(pinFile) ? readPin(root) : null
+    const profile = args.profile || pinned?.profile || process.env.PSTACK_PROFILE || 'balanced'
+    if (!SLUG.test(profile)) fail('profile names must be plain slugs')
+    const explicit = args.codexProfile || (!args.profile && pinned?.codexProfile) || ''
+    let codexProfile = explicit || (profile.startsWith('codex-') ? profile : `codex-${profile}`)
+    const { sha } = loaded
+    const claudeSheet = await sheet(remote, sha, profile)
+    if (!claudeSheet) throw new Error(`no profile ${profile} at ${sha}`)
+    let codexSheet = await sheet(remote, sha, codexProfile)
+    if (!codexSheet && !explicit) codexSheet = await sheet(remote, sha, codexProfile = 'codex-balanced')
+    if (!codexSheet) throw new Error(`no profile ${codexProfile} at ${sha}`)
+    const marketplace = install.marketplaceFrom(await remote.fetchCatalogText(REPO, sha, '.claude-plugin/marketplace.json'))
+    for (const rel of JSON.parse(await remote.fetchCatalogText(REPO, sha, 'scripts/lib/owned.json'))) {
+      mkdirSync(path.dirname(path.join(root, rel)), { recursive: true })
+      writeFileSync(path.join(root, rel), await remote.fetchCatalogText(REPO, sha, rel))
+    }
+    const pin = { repo: REPO, commit: sha, profile, codexProfile, plugins: marketplace.plugins }
+    mkdirSync(path.join(root, '.claude'), { recursive: true })
+    writeFileSync(path.join(root, '.claude', 'pstack-claude-pin.json'), `${JSON.stringify(pin, null, 2)}\n`)
+    await install.install(root, pin, claudeSheet, codexSheet, marketplace.name)
+  } finally {
+    loaded.cleanup()
   }
 }
 
