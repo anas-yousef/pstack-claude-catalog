@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from 'node:child_process'
-import { cpSync, existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, readlinkSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -230,6 +230,24 @@ test('an AGENTS.md include outside the managed block stays untouched', (t) => {
   assert.equal(readFileSync(path.join(repo, 'AGENTS.md'), 'utf8'), agentsMd)
 })
 
+test('CLAUDE.md symlinked to AGENTS.md keeps the combined block and include', (t) => {
+  for (const absolute of [false, true]) {
+    const { home, repo } = fresh(t)
+    const agentsFile = path.join(repo, 'AGENTS.md')
+    const claudeFile = path.join(repo, 'CLAUDE.md')
+    const before = `# Agents\n\nKeep this.\n\n${COMBINED_MARKER}`
+    writeFileSync(agentsFile, before)
+    const target = absolute ? agentsFile : 'AGENTS.md'
+    symlinkSync(target, claudeFile)
+    for (let i = 0; i < 2; i++) {
+      const init = pipeInit(repo, home)
+      assert.equal(init.status, 0, init.stderr)
+      assert.equal(readlinkSync(claudeFile), target)
+      assert.equal(readFileSync(agentsFile, 'utf8'), before)
+    }
+  }
+})
+
 test('an old AGENTS.md pstack block gains exactly one Claude include', (t) => {
   for (const block of [MARKER, COMBINED_MARKER, '## pstack\n\n@.claude/pstack-models.md\nOld instructions.\n']) {
     const { home, repo } = fresh(t)
@@ -388,7 +406,15 @@ test('selected role sheets stay separate and offer a per-chat profile override',
   assert.equal(readFileSync(path.join(repo, '.claude', 'pstack-models.md'), 'utf8'), claude)
 })
 
-test('profile lists follow the catalog directory', (t) => {
+test('the profile index matches the catalog directory', () => {
+  const profiles = path.join(ROOT, 'profiles')
+  const names = readdirSync(profiles, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.md'))
+    .map((entry) => entry.name.slice(0, -3)).sort()
+  assert.deepEqual(JSON.parse(readFileSync(path.join(profiles, 'index.json'), 'utf8')), names)
+})
+
+test('profile lists follow the catalog index', (t) => {
   const { home, repo } = fresh(t)
   const catalog = mkdtempSync(path.join(tmpdir(), 'pstack-cat-'))
   t.after(() => rmSync(catalog, { recursive: true, force: true }))
@@ -400,6 +426,9 @@ test('profile lists follow the catalog directory', (t) => {
   writeFileSync(path.join(catalog, 'profiles', 'notes.txt'), 'not a profile\n')
   mkdirSync(path.join(catalog, 'profiles', 'directory.md'))
   rmSync(path.join(catalog, 'profiles', 'max.md'))
+  const index = path.join(catalog, 'profiles', 'index.json')
+  const names = JSON.parse(readFileSync(index, 'utf8')).filter((name) => name !== 'max')
+  writeFileSync(index, JSON.stringify([...names, 'future', 'codex-future'].sort()))
   const init = pipeInit(repo, home, ['--commit', MAIN], { PSTACK_CATALOG: catalog })
   assert.equal(init.status, 0, init.stderr)
   for (const [runtime, expected] of [
@@ -730,17 +759,15 @@ test('piped init loads every lib from the selected commit', { timeout: 60000 }, 
   const { home, repo } = fresh(t)
   const sha = '0123456789abcdef0123456789abcdef01234567'
   const hits = []
-  const profileRefs = []
   const server = createServer((req, res) => {
     const url = new URL(req.url, 'http://127.0.0.1')
     const { pathname } = url
+    hits.push(pathname)
     if (pathname === '/repos/anas-yousef/pstack-claude-catalog/contents/profiles') {
-      profileRefs.push(url.searchParams.get('ref'))
-      res.writeHead(200, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify(readdirSync(path.join(ROOT, 'profiles')).map((name) => ({ name, type: 'file' }))))
+      res.writeHead(403)
+      res.end('API rate limit exceeded')
       return
     }
-    hits.push(pathname)
     const match = /^\/([^/]+)\/(.+)$/.exec(pathname)
     if (!match) {
       res.writeHead(500)
@@ -778,7 +805,7 @@ test('piped init loads every lib from the selected commit', { timeout: 60000 }, 
   assert.equal(count('.claude-plugin/marketplace.json'), 1)
   assert.equal(count('profiles/balanced.md'), 1)
   assert.equal(count('profiles/codex-balanced.md'), 1)
-  assert.deepEqual(profileRefs, [sha])
+  assert.equal(count('profiles/index.json'), 1)
   const pin = readPin(repo)
   assert.equal(pin.commit, sha)
   assert.deepEqual(readdirSync(path.join(repo, 'scripts', 'lib')).sort(), ['pin.mjs', 'remote.mjs'])
@@ -794,9 +821,9 @@ test('piped init loads every lib from the selected commit', { timeout: 60000 }, 
   const next = readPin(repo)
   assert.equal(next.profile, 'balanced')
   assert.equal(next.codexProfile, 'codex-balanced')
-  assert.deepEqual(profileRefs, [sha, next.commit])
   const body = rest.filter((hit) => hit !== '/main/scripts/lib/remote.mjs')
   assert.ok(body.every((hit) => hit.startsWith(`/${next.commit}/`)))
+  assert.equal(body.filter((hit) => hit.endsWith('/profiles/index.json')).length, 1)
   assert.equal(body.filter((hit) => hit.endsWith('.claude-plugin/marketplace.json')).length, 1)
   assert.equal(rest.some((hit) => hit.split('/').includes('main') && hit !== '/main/scripts/lib/remote.mjs'), false)
 })
