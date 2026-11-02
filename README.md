@@ -44,6 +44,8 @@ Pass `--profile <name>` to select a Claude sheet and its matching `codex-<name>`
 
 Each role row names a model and effort, such as `sonnet @high`. The separate `main session` row controls the session model and effort. Without an installed sheet, skills use their plugin defaults. The files in `profiles/` hold the complete role lists; every profile must cover every role.
 
+Codex sheets and the Codex-facing AGENTS block instruct Codex that `spawn_agent` task names use lowercase letters, digits, and underscores, converting spaces and hyphens to underscores: `how explorer` becomes `how_explorer`.
+
 | Claude profile | Mix | Main session |
 | --- | --- | --- |
 | `balanced` | Opus for most roles, Sonnet for feature work and workers, Fable for strongest judgment. | Sonnet at `high` |
