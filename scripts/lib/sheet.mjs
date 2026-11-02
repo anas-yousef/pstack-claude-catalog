@@ -59,6 +59,7 @@ export function putPstack(file, runtime) {
     : (start < 0 ? current : [...lines.slice(0, start), ...lines.slice(end < 0 ? lines.length : end)].join('\n'))
   const body = [
     runtime !== 'claude' ? 'For pstack skills, Codex must read .codex/pstack-models.md; Claude must read .claude/pstack-models.md. Use your runtime\'s sheet for role overrides.' : '',
+    runtime !== 'claude' ? 'For Codex `spawn_agent`, task names must use only lowercase letters, digits, and underscores; replace spaces and hyphens in role names with underscores (for example, `how explorer` becomes `how_explorer`).' : '',
     runtime !== 'codex' && !/^@\.claude\/pstack-models\.md$/m.test(outside) ? '@.claude/pstack-models.md' : '',
     runtime !== 'codex' ? 'Model sheet: .claude/pstack-models.md.' : '',
     'Run node scripts/pstack-claude-check.mjs as a single command (no chaining); it prints its own status.',

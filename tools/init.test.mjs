@@ -15,7 +15,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const INIT = path.join(ROOT, 'tools', 'init.mjs')
 const MAIN = 'bfd48a1b300dbad50f6ea2e30f4a3edbe9737943'
 const CHECK_RULES = ['Bash(node scripts/pstack-claude-check.mjs:*)', 'Bash(node scripts/check-pstack.mjs:*)']
-const MARKER = '<!-- pstack:begin -->\nFor pstack skills, Codex must read .codex/pstack-models.md; Claude must read .claude/pstack-models.md. Use your runtime\'s sheet for role overrides.\nRun node scripts/pstack-claude-check.mjs as a single command (no chaining); it prints its own status.\n<!-- pstack:end -->\n'
+const CODEX_TASK_NAMES = 'For Codex `spawn_agent`, task names must use only lowercase letters, digits, and underscores; replace spaces and hyphens in role names with underscores (for example, `how explorer` becomes `how_explorer`).'
+const MARKER = `<!-- pstack:begin -->\nFor pstack skills, Codex must read .codex/pstack-models.md; Claude must read .claude/pstack-models.md. Use your runtime's sheet for role overrides.\n${CODEX_TASK_NAMES}\nRun node scripts/pstack-claude-check.mjs as a single command (no chaining); it prints its own status.\n<!-- pstack:end -->\n`
 const CLAUDE_MARKER = '<!-- pstack:begin -->\n@.claude/pstack-models.md\nModel sheet: .claude/pstack-models.md.\nRun node scripts/pstack-claude-check.mjs as a single command (no chaining); it prints its own status.\n<!-- pstack:end -->\n'
 const COMBINED_MARKER = MARKER.replace('Run node', '@.claude/pstack-models.md\nModel sheet: .claude/pstack-models.md.\nRun node')
 
@@ -295,8 +296,8 @@ test('CLAUDE.md symlinked to AGENTS.md keeps the combined block and include', (t
   }
 })
 
-test('an old AGENTS.md pstack block gains exactly one Claude include', (t) => {
-  for (const block of [MARKER, COMBINED_MARKER, '## pstack\n\n@.claude/pstack-models.md\nOld instructions.\n']) {
+test('an old AGENTS.md pstack block gains the naming rule and exactly one Claude include', (t) => {
+  for (const block of [MARKER.replace(`${CODEX_TASK_NAMES}\n`, ''), COMBINED_MARKER, '## pstack\n\n@.claude/pstack-models.md\nOld instructions.\n']) {
     const { home, repo } = fresh(t)
     writeFileSync(path.join(repo, 'AGENTS.md'), `# Agents\n\n${block}\n## Product\nKeep this.\n`)
     const init = pipeInit(repo, home)
@@ -536,6 +537,25 @@ test('profile lists follow the catalog index', (t) => {
   ]) {
     const sheet = readFileSync(path.join(repo, `.${runtime}`, 'pstack-models.md'), 'utf8')
     assert.ok(sheet.includes(`Profiles: ${expected}.`))
+  }
+})
+
+test('every Codex sheet carries the spawn_agent naming rule and its roles yield valid task names', () => {
+  const profiles = path.join(ROOT, 'profiles')
+  const sheets = readdirSync(profiles).filter((name) => /^codex-.*\.md$/.test(name))
+  assert.ok(sheets.length > 0)
+  for (const name of sheets) {
+    const text = readFileSync(path.join(profiles, name), 'utf8')
+    assert.ok(text.includes(CODEX_TASK_NAMES), `${name}: missing task naming rule`)
+    const rows = [...text.matchAll(/^([a-z][^:\n]*):\s+(\S.*)$/gm)]
+      .filter(([, role]) => role !== 'default effort' && role !== 'panel vendors')
+    assert.ok(rows.length > 0, `${name}: missing roles`)
+    for (const [, roles] of rows) {
+      for (const role of roles.split(',')) {
+        const taskName = role.trim().toLowerCase().replace(/[\s-]+/g, '_')
+        assert.match(taskName, /^[a-z0-9_]+$/, `${name}: ${role}`)
+      }
+    }
   }
 })
 
