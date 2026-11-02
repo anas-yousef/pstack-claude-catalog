@@ -89,6 +89,9 @@ test('real Claude and Codex install both plugins on first run in an empty HOME a
     assert.match(run('claude', ['plugin', 'details', plugin.id], repo, env), plugin.id.startsWith('pstack@') ? /poteto-mode/ : /greenfield/)
   }
   const project = JSON.parse(readFileSync(path.join(repo, '.claude/settings.json')))
+  assert.deepEqual(project.extraKnownMarketplaces['pstack-claude-catalog'].source, {
+    source: 'github', repo: 'anas-yousef/pstack-claude-catalog',
+  })
   const user = JSON.parse(readFileSync(path.join(home, '.claude/settings.json')))
   assert.equal(project.permissions.defaultMode, undefined)
   assert.equal(user.permissions.defaultMode, 'bypassPermissions')
@@ -99,7 +102,10 @@ test('real Claude and Codex install both plugins on first run in an empty HOME a
   for (const name of ['pstack:poteto-mode', 'pstack-extras:greenfield']) {
     assert.ok(loaded.some((skill) => skill.name === name && skill.enabled && skill.path.includes('/plugins/cache/pstack-claude-catalog/')), `missing loaded plugin skill ${name}`)
   }
+  const projectFiles = ['.claude/settings.json', '.codex/config.toml']
+  const beforeRerun = projectFiles.map((file) => readFileSync(path.join(repo, file)))
   init()
+  assert.deepEqual(projectFiles.map((file) => readFileSync(path.join(repo, file))), beforeRerun)
   assert.deepEqual(JSON.parse(run('claude', ['plugin', 'list', '--json'], repo, env)), claude)
   assert.deepEqual(JSON.parse(run('codex', ['plugin', 'list', '--json'], repo, env)).installed, installed)
   assert.equal(JSON.parse(readFileSync(path.join(repo, '.claude/pstack-claude-pin.json'))).commit, sha)

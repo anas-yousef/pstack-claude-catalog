@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { cpSync, existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, readlinkSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, lstatSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, readlinkSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -35,8 +35,37 @@ function fresh(t) {
   mkdirSync(path.join(home, 'bin'))
   for (const cli of ['codex', 'claude']) writeFileSync(path.join(home, 'bin', cli), `#!${process.execPath}
 import fs from 'node:fs'
+import path from 'node:path'
+import { isDeepStrictEqual } from 'node:util'
 const args = process.argv.slice(2)
 fs.appendFileSync(process.env.HOME + '/${cli}-calls.jsonl', JSON.stringify(args) + '\\n')
+if ('${cli}' === 'claude' && args.slice(0, 3).join(' ') === 'plugin marketplace add') {
+  const file = path.join(process.env.CLAUDE_CONFIG_DIR || path.join(process.env.HOME, '.claude'), 'settings.json')
+  const read = (file) => fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {}
+  const name = 'pstack-claude-catalog'
+  const [input, ref] = args[3].split('#')
+  const source = input.startsWith('https:')
+    ? { source: input.endsWith('.json') ? 'url' : 'git', url: input }
+    : input.startsWith('/') ? { source: input.endsWith('.json') ? 'file' : 'directory', path: input }
+    : { source: 'github', repo: input }
+  if (ref) source.ref = ref
+  if (args.at(-1) === 'project') {
+    const entry = read(file).extraKnownMarketplaces?.[name]
+    if (process.env.PSTACK_TEST_CLAUDE_MANAGED_CONFLICT || (entry && !isDeepStrictEqual(entry.source, source))) {
+      process.stderr.write("Cannot add marketplace " + name + ": its source doesn't match its extraKnownMarketplaces entry in user or managed settings; add it from the source that entry lists, or change the entry.")
+      process.exit(1)
+    }
+    const projectFile = path.join(process.cwd(), '.claude/settings.json')
+    const project = read(projectFile)
+    project.extraKnownMarketplaces[name] = { source }
+    fs.writeFileSync(projectFile, JSON.stringify(project, null, 2) + '\\n')
+  } else {
+    const user = read(file)
+    user.extraKnownMarketplaces = { ...user.extraKnownMarketplaces, [name]: { source } }
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, JSON.stringify(user, null, 2) + '\\n')
+  }
+}
 if (args.join(' ').includes(process.env.PSTACK_TEST_${cli.toUpperCase()}_FAIL || 'never-fail')) {
   process.stderr.write('fixture install failure')
   process.exit(1)
@@ -49,8 +78,8 @@ if (args.join(' ').includes(process.env.PSTACK_TEST_${cli.toUpperCase()}_FAIL ||
 function childEnv(home, extraEnv = {}) {
   const env = { ...process.env, HOME: home, PATH: `${path.join(home, 'bin')}${path.delimiter}${process.env.PATH}`, ...extraEnv }
   delete env.XDG_CACHE_HOME
-  delete env.CODEX_HOME
-  delete env.CLAUDE_CONFIG_DIR
+  if (!Object.hasOwn(extraEnv, 'CODEX_HOME')) delete env.CODEX_HOME
+  if (!Object.hasOwn(extraEnv, 'CLAUDE_CONFIG_DIR')) delete env.CLAUDE_CONFIG_DIR
   if (!Object.hasOwn(extraEnv, 'PSTACK_CATALOG')) delete env.PSTACK_CATALOG
   if (!Object.hasOwn(extraEnv, 'PSTACK_PROFILE')) delete env.PSTACK_PROFILE
   if (!Object.hasOwn(extraEnv, 'PSTACK_API')) delete env.PSTACK_API
@@ -1071,7 +1100,7 @@ test('init installs pinned plugins through the CLI and reports install failures'
   ])
   assert.deepEqual(readFileSync(path.join(home, 'claude-calls.jsonl'), 'utf8').trim().split('\n').map(JSON.parse), [
     ['--version'],
-    ['plugin', 'marketplace', 'add', 'https://github.com/anas-yousef/pstack-claude-catalog.git', '--scope', 'project'],
+    ['plugin', 'marketplace', 'add', 'anas-yousef/pstack-claude-catalog', '--scope', 'project'],
     ['plugin', 'install', 'pstack@pstack-claude-catalog', '--scope', 'project'],
     ['plugin', 'install', 'pstack-extras@pstack-claude-catalog', '--scope', 'project'],
   ])
@@ -1084,6 +1113,181 @@ test('init installs pinned plugins through the CLI and reports install failures'
   assert.notEqual(claudeFailure.status, 0)
   assert.match(claudeFailure.stderr, /claude plugin install.*fixture install failure/)
   assert.equal(pipeInit(repo, home).status, 0)
+})
+
+test('init honors a conflicting directory marketplace without changing user settings bytes', (t) => {
+  for (const ask of [false, true]) {
+    const { home, repo } = fresh(t)
+    const configDir = path.join(home, ask ? 'custom-claude' : '.claude')
+    const userFile = path.join(configDir, 'settings.json')
+    const directory = path.join(home, 'my marketplace')
+    mkdirSync(configDir)
+    mkdirSync(directory)
+    const user = {
+      theme: 'dark',
+      permissions: ask ? {} : { defaultMode: 'bypassPermissions' },
+      extraKnownMarketplaces: { 'pstack-claude-catalog': { source: { source: 'directory', path: directory } } },
+    }
+    const before = Buffer.from(JSON.stringify(user, null, '\t') + '\r\n')
+    writeFileSync(userFile, before)
+    const result = pipeInit(repo, home, ask ? ['--ask-permissions'] : [], { CLAUDE_CONFIG_DIR: configDir })
+    assert.equal(result.status, 0, result.stderr)
+    assert.deepEqual(readFileSync(userFile), before)
+    assert.equal(result.stdout, `note: ${userFile} declares marketplace pstack-claude-catalog from directory ${directory}; init uses it and leaves it unchanged. Remove that entry to use the project's github source.\n`)
+    const calls = readFileSync(path.join(home, 'claude-calls.jsonl'), 'utf8').trim().split('\n').map(JSON.parse)
+    assert.deepEqual(calls, [
+      ['--version'],
+      ['plugin', 'marketplace', 'add', 'anas-yousef/pstack-claude-catalog', '--scope', 'project'],
+      ['plugin', 'marketplace', 'add', directory, '--scope', 'user'],
+      ['plugin', 'install', 'pstack@pstack-claude-catalog', '--scope', 'project'],
+      ['plugin', 'install', 'pstack-extras@pstack-claude-catalog', '--scope', 'project'],
+    ])
+  }
+})
+
+test('init preserves symlinked user settings and their target bytes after marketplace registration', (t) => {
+  const { home, repo } = fresh(t)
+  const userFile = path.join(home, '.claude/settings.json')
+  const target = path.join(home, 'shared-settings.json')
+  mkdirSync(path.dirname(userFile))
+  const before = Buffer.from(JSON.stringify({
+    theme: 'dark',
+    permissions: { defaultMode: 'bypassPermissions' },
+    extraKnownMarketplaces: { 'pstack-claude-catalog': { source: { source: 'directory', path: home } } },
+  }, null, '\t') + '\r\n')
+  writeFileSync(target, before, { mode: 0o640 })
+  symlinkSync(target, userFile)
+  const mode = statSync(target).mode
+  const result = pipeInit(repo, home)
+  assert.equal(result.status, 0, result.stderr)
+  assert.equal(lstatSync(userFile).isSymbolicLink(), true)
+  assert.equal(readlinkSync(userFile), target)
+  assert.deepEqual(readFileSync(target), before)
+  assert.deepEqual(readFileSync(userFile), before)
+  assert.equal(statSync(target).mode, mode)
+})
+
+test('init updates symlinked user settings while preserving the link and mode', (t) => {
+  const { home, repo } = fresh(t)
+  const userFile = path.join(home, '.claude/settings.json')
+  const target = path.join(home, 'shared-settings.json')
+  mkdirSync(path.dirname(userFile))
+  writeFileSync(target, JSON.stringify({ permissions: { allow: ['Read'] } }), { mode: 0o600 })
+  symlinkSync(target, userFile)
+  const result = pipeInit(repo, home)
+  assert.equal(result.status, 0, result.stderr)
+  assert.equal(lstatSync(userFile).isSymbolicLink(), true)
+  assert.equal(readlinkSync(userFile), target)
+  assert.deepEqual(JSON.parse(readFileSync(target)).permissions, { allow: ['Read'], defaultMode: 'bypassPermissions' })
+  assert.equal(statSync(target).mode & 0o777, 0o600)
+})
+
+test('init reports managed conflicts when the user marketplace is absent or canonical', (t) => {
+  for (const canonical of [false, true]) {
+    const { home, repo } = fresh(t)
+    mkdirSync(path.join(home, '.claude'))
+    writeFileSync(path.join(home, '.claude/settings.json'), JSON.stringify({
+      extraKnownMarketplaces: canonical ? { 'pstack-claude-catalog': { source: { source: 'github', repo: 'anas-yousef/pstack-claude-catalog' } } } : {},
+    }))
+    const result = pipeInit(repo, home, [], { PSTACK_TEST_CLAUDE_MANAGED_CONFLICT: '1' })
+    assert.notEqual(result.status, 0)
+    assert.ok(result.stderr.includes('pstack-claude-catalog is declared with a different source in managed settings; ask your administrator, or remove that entry (https://code.claude.com/docs/en/settings#settings-precedence)'), result.stderr)
+    const calls = readFileSync(path.join(home, 'claude-calls.jsonl'), 'utf8').trim().split('\n').map(JSON.parse)
+    assert.deepEqual(calls, [
+      ['--version'],
+      ['plugin', 'marketplace', 'add', 'anas-yousef/pstack-claude-catalog', '--scope', 'project'],
+    ])
+  }
+})
+
+test('failed user marketplace registration restores user settings bytes', (t) => {
+  const { home, repo } = fresh(t)
+  const file = path.join(home, '.claude/settings.json')
+  mkdirSync(path.dirname(file))
+  const before = Buffer.from(JSON.stringify({
+    theme: 'dark',
+    permissions: { defaultMode: 'bypassPermissions' },
+    extraKnownMarketplaces: { 'pstack-claude-catalog': { source: { source: 'directory', path: home } } },
+  }, null, '\t') + '\r\n')
+  writeFileSync(file, before)
+  const result = pipeInit(repo, home, [], { PSTACK_TEST_CLAUDE_FAIL: '--scope user' })
+  assert.notEqual(result.status, 0)
+  assert.match(result.stderr, /Claude plugin setup failed \(Codex setup completed\).*--scope user failed: fixture install failure/)
+  assert.deepEqual(readFileSync(file), before)
+})
+
+test('an unsupported marketplace source names the settings file and key', (t) => {
+  const { home, repo } = fresh(t)
+  const file = path.join(home, '.claude/settings.json')
+  mkdirSync(path.dirname(file))
+  const before = JSON.stringify({
+    permissions: { defaultMode: 'bypassPermissions' },
+    extraKnownMarketplaces: { 'pstack-claude-catalog': { source: { source: 'npm', package: 'marketplace' } } },
+  }, null, '\t')
+  writeFileSync(file, before)
+  const result = pipeInit(repo, home)
+  assert.notEqual(result.status, 0)
+  assert.ok(result.stderr.includes(file), result.stderr)
+  assert.match(result.stderr, /extraKnownMarketplaces.*pstack-claude-catalog.*npm/)
+  assert.match(result.stderr, /[Rr]emove or change/)
+  assert.equal(readFileSync(file, 'utf8'), before)
+})
+
+test('Claude command failures still complete Codex setup in CODEX_HOME', (t) => {
+  for (const fail of ['plugin install', 'marketplace add']) {
+    const { home, repo } = fresh(t)
+    const codexHome = path.join(home, 'custom-codex')
+    const result = pipeInit(repo, home, [], { CODEX_HOME: codexHome, PSTACK_TEST_CLAUDE_FAIL: fail })
+    assert.notEqual(result.status, 0)
+    assert.match(result.stderr, /^Claude plugin setup failed \(Codex setup completed\): claude plugin .*fixture install failure/)
+    assert.match(readFileSync(path.join(repo, '.codex/pstack-models.md'), 'utf8'), /Profile: codex-balanced/)
+    assert.match(readFileSync(path.join(repo, '.codex/config.toml'), 'utf8'), /approval_policy = "never"/)
+    const trust = readFileSync(path.join(codexHome, 'config.toml'), 'utf8')
+    assert.ok(trust.includes(`[projects."${repo}"]\ntrust_level = "trusted"`), trust)
+    assert.equal(existsSync(path.join(home, '.codex/config.toml')), false)
+    const calls = readFileSync(path.join(home, 'codex-calls.jsonl'), 'utf8').trim().split('\n').map(JSON.parse)
+    assert.deepEqual(calls, [
+      ['--version'],
+      ['plugin', 'marketplace', 'upgrade', 'pstack-claude-catalog', '--json'],
+      ['plugin', 'add', 'pstack@pstack-claude-catalog', '--json'],
+      ['plugin', 'add', 'pstack-extras@pstack-claude-catalog', '--json'],
+    ])
+  }
+})
+
+test('Claude failure reports that Codex setup was skipped when its CLI is absent', (t) => {
+  const { home, repo } = fresh(t)
+  rmSync(path.join(home, 'bin/codex'))
+  const result = pipeInit(repo, home, [], { PATH: path.join(home, 'bin'), PSTACK_TEST_CLAUDE_FAIL: 'plugin install' })
+  assert.notEqual(result.status, 0)
+  assert.match(result.stderr, /^Claude plugin setup failed \(Codex setup skipped: Codex CLI not found\): claude plugin .*fixture install failure/)
+  assert.equal(existsSync(path.join(repo, '.codex')), false)
+})
+
+test('init reports both Claude and Codex setup failures, Claude first', (t) => {
+  const { home, repo } = fresh(t)
+  const result = pipeInit(repo, home, [], { PSTACK_TEST_CLAUDE_FAIL: 'plugin install', PSTACK_TEST_CODEX_FAIL: 'marketplace upgrade' })
+  assert.notEqual(result.status, 0)
+  assert.match(result.stderr, /^Claude plugin setup failed: claude plugin .*fixture install failure; Codex setup failed: codex plugin .*fixture install failure/)
+})
+
+test('init rewrites a legacy project git marketplace to github and is byte-identical on rerun', (t) => {
+  const { home, repo } = fresh(t)
+  const claudeFile = path.join(repo, '.claude/settings.json')
+  const codexFile = path.join(repo, '.codex/config.toml')
+  mkdirSync(path.dirname(claudeFile))
+  writeFileSync(claudeFile, JSON.stringify({
+    extraKnownMarketplaces: { 'pstack-claude-catalog': { source: { source: 'git', url: 'https://github.com/anas-yousef/pstack-claude-catalog.git' } } },
+  }))
+  const first = pipeInit(repo, home)
+  assert.equal(first.status, 0, first.stderr)
+  assert.deepEqual(settings(repo).extraKnownMarketplaces['pstack-claude-catalog'].source, {
+    source: 'github', repo: 'anas-yousef/pstack-claude-catalog',
+  })
+  const before = [claudeFile, codexFile].map((file) => readFileSync(file))
+  const second = pipeInit(repo, home)
+  assert.equal(second.status, 0, second.stderr)
+  assert.deepEqual([claudeFile, codexFile].map((file) => readFileSync(file)), before)
 })
 
 test('CLI preflight errors stop init before writing any project or user settings', (t) => {

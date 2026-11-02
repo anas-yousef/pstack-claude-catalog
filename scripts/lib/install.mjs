@@ -1,7 +1,8 @@
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import path from 'node:path'
+import { isDeepStrictEqual } from 'node:util'
 import { fetchCatalogText, githubSlug } from './remote.mjs'
 import { putPstack, sessionSettings } from './sheet.mjs'
 import { writeConfig } from './toml.mjs'
@@ -96,7 +97,10 @@ function userPermissions(askPermissions) {
   if (askPermissions) {
     if (permissions.defaultMode !== 'bypassPermissions') return
     delete permissions.defaultMode
-  } else permissions.defaultMode = 'bypassPermissions'
+  } else {
+    if (permissions.defaultMode === 'bypassPermissions') return
+    permissions.defaultMode = 'bypassPermissions'
+  }
   parsed.permissions = permissions
   const next = `${JSON.stringify(parsed, null, 2)}\n`
   if (next !== raw) writeAtomic(file, next)
@@ -132,11 +136,17 @@ function available(cli) {
 }
 
 function writeAtomic(file, text) {
+  let mode
+  if (existsSync(file)) {
+    file = realpathSync(file)
+    mode = statSync(file).mode
+  }
   const dir = path.dirname(file)
   mkdirSync(dir, { recursive: true })
   const tmp = path.join(dir, `.${path.basename(file)}.${process.pid}.tmp`)
   try {
     writeFileSync(tmp, text)
+    if (mode !== undefined) chmodSync(tmp, mode)
     renameSync(tmp, file)
   } catch (error) {
     rmSync(tmp, { force: true })
@@ -169,6 +179,51 @@ function withProfiles(sheet, pin, profiles) {
   return `${sheet.trimEnd()}\n\nProfiles: ${profiles.join(', ')}. For this chat only, say "Use <profile> for this chat"; fetch ${url} over the network and override the installed role rows.\n`
 }
 
+function addClaudeMarketplace(root, pin, marketplace) {
+  const canonical = { source: 'github', repo: githubSlug(pin.repo) }
+  try {
+    command('claude', root, ['plugin', 'marketplace', 'add', canonical.repo, '--scope', 'project'])
+    return
+  } catch (error) {
+    if (!error.message.includes("doesn't match its extraKnownMarketplaces entry")) throw error
+  }
+  const userFile = claudeSettings()
+  const entry = readClaude(userFile).parsed.extraKnownMarketplaces?.[marketplace]
+  if (entry === undefined || isDeepStrictEqual(entry?.source, canonical)) {
+    throw new Error(`${marketplace} is declared with a different source in managed settings; ask your administrator, or remove that entry (https://code.claude.com/docs/en/settings#settings-precedence)`)
+  }
+  const source = entry?.source
+  let arg
+  switch (source?.source) {
+    case 'github': arg = source.repo; break
+    case 'git':
+    case 'url': arg = source.url; break
+    case 'directory':
+    case 'file': arg = source.path; break
+  }
+  if (typeof arg !== 'string' || !arg) {
+    throw new Error(`${userFile}: extraKnownMarketplaces[${marketplace}] has an unsupported or invalid source type ${source?.source}; remove or change that entry.`)
+  }
+  if ((source.source === 'github' || source.source === 'git') && source.ref) arg += `#${source.ref}`
+  const before = readFileSync(userFile)
+  let addError
+  try {
+    command('claude', root, ['plugin', 'marketplace', 'add', arg, '--scope', 'user'])
+  } catch (error) {
+    addError = error
+  } finally {
+    try {
+      if (!existsSync(userFile) || !readFileSync(userFile).equals(before)) writeFileSync(userFile, before)
+    } catch (error) {
+      const message = `failed to restore ${userFile}: ${error.message}`
+      if (addError) addError.message += `; ${message}`
+      else addError = new Error(message)
+    }
+  }
+  if (addError) throw addError
+  process.stdout.write(`note: ${userFile} declares marketplace ${marketplace} from ${source.source} ${arg}; init uses it and leaves it unchanged. Remove that entry to use the project's github source.\n`)
+}
+
 export async function install(root, pin, claudeSheet, codexSheet, marketplace, askPermissions = false, clients = assertHomes()) {
   const profiles = JSON.parse(await fetchCatalogText(pin.repo, pin.commit, 'profiles/index.json'))
   const claudeDir = path.join(root, '.claude')
@@ -184,31 +239,43 @@ export async function install(root, pin, claudeSheet, codexSheet, marketplace, a
   putPstack(agentsMd, separateClaude ? 'codex' : clients.codex ? 'both' : 'claude')
   const abs = path.resolve(root)
   trustClaude(abs)
+  let claudeError
   if (clients.claude) {
-    command('claude', root, ['plugin', 'marketplace', 'add', `${pin.repo}.git`, '--scope', 'project'])
-    for (const plugin of pin.plugins) command('claude', root, ['plugin', 'install', `${plugin}@${marketplace}`, '--scope', 'project'])
+    try {
+      addClaudeMarketplace(root, pin, marketplace)
+      for (const plugin of pin.plugins) command('claude', root, ['plugin', 'install', `${plugin}@${marketplace}`, '--scope', 'project'])
+    } catch (error) {
+      claudeError = error
+    }
   }
-  if (!clients.codex) return
-  mkdirSync(codexDir, { recursive: true })
-  writeFileSync(path.join(codexDir, 'pstack-models.md'), withProfiles(codexSheet, pin, profiles.filter((name) => name.startsWith('codex-'))))
-  const session = sessionSettings(codexSheet)
-  const quoted = abs.replaceAll('\\', '\\\\').replaceAll('"', '\\"')
-  writeConfig(path.join(codexDir, 'config.toml'), {
-    root: {
-      model: session.model,
-      model_reasoning_effort: session.effort,
-      ...(!askPermissions ? { approval_policy: 'never', sandbox_mode: 'danger-full-access' } : {}),
-    },
-    removeRoot: askPermissions ? { approval_policy: 'never', sandbox_mode: 'danger-full-access' } : {},
-    tables: codexTables(pin, marketplace),
-  })
-  const home = process.env.CODEX_HOME || path.join(homedir(), '.codex')
-  mkdirSync(home, { recursive: true })
-  writeConfig(path.join(home, 'config.toml'), {
-    tables: { [`projects."${quoted}"`]: { trust_level: 'trusted' } },
-  })
-  command('codex', root, ['plugin', 'marketplace', 'upgrade', marketplace, '--json'])
-  for (const plugin of pin.plugins) command('codex', root, ['plugin', 'add', `${plugin}@${marketplace}`, '--json'])
+  if (clients.codex) {
+    try {
+      mkdirSync(codexDir, { recursive: true })
+      writeFileSync(path.join(codexDir, 'pstack-models.md'), withProfiles(codexSheet, pin, profiles.filter((name) => name.startsWith('codex-'))))
+      const session = sessionSettings(codexSheet)
+      const quoted = abs.replaceAll('\\', '\\\\').replaceAll('"', '\\"')
+      writeConfig(path.join(codexDir, 'config.toml'), {
+        root: {
+          model: session.model,
+          model_reasoning_effort: session.effort,
+          ...(!askPermissions ? { approval_policy: 'never', sandbox_mode: 'danger-full-access' } : {}),
+        },
+        removeRoot: askPermissions ? { approval_policy: 'never', sandbox_mode: 'danger-full-access' } : {},
+        tables: codexTables(pin, marketplace),
+      })
+      const home = process.env.CODEX_HOME || path.join(homedir(), '.codex')
+      mkdirSync(home, { recursive: true })
+      writeConfig(path.join(home, 'config.toml'), {
+        tables: { [`projects."${quoted}"`]: { trust_level: 'trusted' } },
+      })
+      command('codex', root, ['plugin', 'marketplace', 'upgrade', marketplace, '--json'])
+      for (const plugin of pin.plugins) command('codex', root, ['plugin', 'add', `${plugin}@${marketplace}`, '--json'])
+    } catch (error) {
+      if (claudeError) throw new Error(`Claude plugin setup failed: ${claudeError.message}; Codex setup failed: ${error.message}`)
+      throw error
+    }
+  }
+  if (claudeError) throw new Error(`Claude plugin setup failed (Codex setup ${clients.codex ? 'completed' : 'skipped: Codex CLI not found'}): ${claudeError.message}`)
 }
 
 function command(cli, root, args) {
