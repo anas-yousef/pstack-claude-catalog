@@ -1,19 +1,19 @@
 ---
 name: build-auto
-description: poteto-mode invokes this skill for a product or a large feature. Use when poteto-mode starts a product or a large feature, when the user runs /build, or when /build auto should carry that work. poteto-mode takes review and ship when this skill returns.
+description: poteto-mode invokes this skill for a new product or feature. Use when poteto-mode starts a new product or feature, when the user runs /build, or when /build auto should carry that work. poteto-mode takes review and ship when this skill returns.
 ---
 
 # Build auto
 
-poteto-mode is the single entry point. For a product or a large feature, poteto-mode invokes this skill. `/spec` and `/build` call the same skills. When the last selected task is committed, return to poteto-mode. poteto-mode owns review and ship.
+poteto-mode is the single entry point. For a new product or feature, poteto-mode invokes this skill. `/spec` and `/build` call the same skills. When the last selected task is committed, return to poteto-mode. poteto-mode owns review and ship.
 
 ## When to use
 
-Use this skill for a product or a large feature, and when the user runs `/build` or `/build auto`.
+Use this skill for a new product or feature, and when the user runs `/build` or `/build auto`.
 
-A one-line fix stays on poteto-mode's bug-fix playbook.
+A one-line fix stays on poteto-mode's bug-fix playbook. Changes to existing behavior and refactors stay on poteto-mode's playbooks.
 
-When the product starts from an old repo, follow `../greenfield/SKILL.md` before this skill.
+A new product or feature starts with `../prd/SKILL.md`, which hands off to spec-driven-development, before this skill. For a from-scratch rebuild of an old repo, follow `../greenfield/SKILL.md` first; it reaches `prd`.
 
 ## Roles
 
@@ -34,7 +34,7 @@ The implementer writes the task. The reviewer is a fresh subagent that checks th
 
 1. Write or reuse the spec. Follow `../spec-driven-development/SKILL.md`. A spec counts when it is `SPEC.md`, `docs/SPEC.md`, or a file under `spec/`.
 2. Write or reuse the plan. Follow `../planning-and-task-breakdown/SKILL.md`. When the run is autonomous, approve the plan and continue. Autonomous means `/build auto`, a poteto-mode autonomy grant, or an explicit request to run until done. Otherwise show the plan and wait for an unambiguous yes. When this run created the plan, commit the plan alone before the first task commit.
-3. Take the selected tasks in dependency order. `/build` with no argument selects the next pending task and stops after it. `/build auto`, and a poteto-mode run for a product or a large feature, selects every pending task.
+3. Take the selected tasks in dependency order. `/build` with no argument selects the next pending task and stops after it. `/build auto`, and a poteto-mode run for a new product or feature, selects every pending task.
 4. For each selected task, the implementer follows `../incremental-implementation/SKILL.md` and `../../../pstack/skills/tdd/SKILL.md`.
 5. Run the repository's unit tests and integration tests for the task. Both have to pass.
 6. When the task changes a browser UI, run a committed browser end-to-end test and require it to pass. A change is user-visible when a person can see it in a browser UI. Use the repository's Playwright command, such as `test:e2e`, when the repository has one. Follow `../committed-browser-proof/SKILL.md`. A script that exists only under `/tmp` does not meet this gate. Copy a probe into the committed test before citing the run.
