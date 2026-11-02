@@ -16,8 +16,9 @@ const INIT = path.join(ROOT, 'tools', 'init.mjs')
 const MAIN = 'bfd48a1b300dbad50f6ea2e30f4a3edbe9737943'
 const CHECK_RULES = ['Bash(node scripts/pstack-claude-check.mjs:*)', 'Bash(node scripts/check-pstack.mjs:*)']
 const CODEX_TASK_NAMES = 'For Codex `spawn_agent`, task names must use only lowercase letters, digits, and underscores; replace spaces and hyphens in role names with underscores (for example, `how explorer` becomes `how_explorer`).'
-const MARKER = `<!-- pstack:begin -->\nFor pstack skills, Codex must read .codex/pstack-models.md; Claude must read .claude/pstack-models.md. Use your runtime's sheet for role overrides.\n${CODEX_TASK_NAMES}\nRun node scripts/pstack-claude-check.mjs as a single command (no chaining); it prints its own status.\n<!-- pstack:end -->\n`
-const CLAUDE_MARKER = '<!-- pstack:begin -->\n@.claude/pstack-models.md\nModel sheet: .claude/pstack-models.md.\nRun node scripts/pstack-claude-check.mjs as a single command (no chaining); it prints its own status.\n<!-- pstack:end -->\n'
+const ROUTING = 'poteto-mode is the only entry point. Inside it, a from-scratch rebuild of an old repo (the current one or one named by path or URL) starts with pstack-extras `greenfield`; any other new product or feature, including one in an existing repo, starts with `pstack-extras:prd` (not any other PRD skill), then spec-driven-development, then build-auto. Changes to existing behavior, refactors, and bug fixes use poteto-mode\'s own playbooks.'
+const MARKER = `<!-- pstack:begin -->\n${ROUTING}\nFor pstack skills, Codex must read .codex/pstack-models.md; Claude must read .claude/pstack-models.md. Use your runtime's sheet for role overrides.\n${CODEX_TASK_NAMES}\nRun node scripts/pstack-claude-check.mjs as a single command (no chaining); it prints its own status.\n<!-- pstack:end -->\n`
+const CLAUDE_MARKER = `<!-- pstack:begin -->\n${ROUTING}\n@.claude/pstack-models.md\nModel sheet: .claude/pstack-models.md.\nRun node scripts/pstack-claude-check.mjs as a single command (no chaining); it prints its own status.\n<!-- pstack:end -->\n`
 const COMBINED_MARKER = MARKER.replace('Run node', '@.claude/pstack-models.md\nModel sheet: .claude/pstack-models.md.\nRun node')
 
 function git(args, cwd) {
