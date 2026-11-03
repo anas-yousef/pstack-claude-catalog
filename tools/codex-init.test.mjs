@@ -116,7 +116,7 @@ test('real Claude and Codex install both plugins on first run in an empty HOME a
   run('git', ['commit', '-qm', 'refresh fixture'], catalog, env)
   const next = run('git', ['rev-parse', 'HEAD'], catalog, env).trim()
   init(next)
-  assert.equal(readFileSync(path.join(home, '.codex/plugins/cache/pstack-claude-catalog/pstack-extras/1.2.0/skills/greenfield/SKILL.md'), 'utf8'), updated)
+  assert.equal(readFileSync(path.join(home, '.codex/plugins/cache/pstack-claude-catalog/pstack-extras/1.3.0/skills/greenfield/SKILL.md'), 'utf8'), updated)
   assert.equal(JSON.parse(readFileSync(path.join(repo, '.claude/pstack-claude-pin.json'))).commit, next)
   run(process.execPath, [path.join(ROOT, 'tools/init.mjs'), '--commit', next, '--ask-permissions'], repo, env)
   assert.equal(JSON.parse(readFileSync(path.join(home, '.claude/settings.json'))).permissions.defaultMode, undefined)

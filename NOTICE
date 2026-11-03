@@ -11,7 +11,8 @@ plugins/pstack-extras/skills/greenfield/,
 plugins/pstack-extras/skills/legacy-critique/,
 plugins/pstack-extras/skills/local-supabase/,
 plugins/pstack-extras/skills/merge-reviews/,
-plugins/pstack-extras/skills/prd/, profiles/, scripts/, tools/init.mjs,
+plugins/pstack-extras/skills/prd/,
+plugins/pstack-extras/skills/ux-critique/, profiles/, scripts/, tools/init.mjs,
 tools/init.test.mjs, tools/codex-init.test.mjs, tools/headless.mjs,
 tools/sync.mjs, and tools/sync.test.mjs.
 
