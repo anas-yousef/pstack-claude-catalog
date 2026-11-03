@@ -16,7 +16,7 @@
       "name": "pstack-extras",
       "source": "./plugins/pstack-extras",
       "description": "Skills pstack-claude does not ship: cursor-team-kit, superpowers, mattpocock/skills, addyosmani/agent-skills, vercel-labs/agent-skills, supabase/agent-skills, and original skills. greenfield runs legacy-critique, merge-reviews, prd, and build-auto. poteto-mode stays the entry point.",
-      "version": "1.2.0"
+      "version": "1.3.0"
     }
   ]
 }
