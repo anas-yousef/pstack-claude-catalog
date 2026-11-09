@@ -24,7 +24,7 @@ agent-skills substitutions after a refresh of that source.
 
 pstack-claude
   Source:  https://github.com/michael-denyer/pstack-claude (plugins/pstack/)
-  Commit:  5851c89613e2ddc3a6b7f4af02a42363b30ef8d3
+  Commit:  91ab921ab92d9ccfe503c93c3524410277f012e1
   License: MIT, Copyright (c) 2026 Lauren Tan; port changes Copyright (c) 2026
            Michael Denyer. See third-party/pstack-claude/LICENSE and NOTICE.md.
            Skills the port took from cursor-team-kit and thermos keep those

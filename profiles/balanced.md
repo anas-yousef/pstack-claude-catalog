@@ -22,5 +22,7 @@ arena cross-judge pool: fable @xhigh, opus @xhigh, sonnet @high
 swarm workers: sonnet @high
 architect runners: opus @xhigh, sonnet @high
 interrogate reviewers: opus @xhigh, fable @high, sonnet @high
+thermos reviewers: opus @high
+no-comments reviewer: opus @high
 
 default effort: high
