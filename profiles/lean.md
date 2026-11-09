@@ -22,5 +22,7 @@ arena cross-judge pool: opus @high, sonnet @high
 swarm workers: haiku @high
 architect runners: sonnet @xhigh, haiku @high
 interrogate reviewers: sonnet @high, haiku @high
+thermos reviewers: sonnet @high
+no-comments reviewer: sonnet @high
 
 default effort: medium
