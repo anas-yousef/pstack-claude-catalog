@@ -84,11 +84,18 @@ export function parseWorktrees(output) {
   return worktrees;
 }
 
-export function defaultTranscriptRoots({ env = process.env, home = homedir(), stat = statSync } = {}) {
-  const claude = join(env.CLAUDE_CONFIG_DIR || join(home, ".claude"), "projects");
-  const codex = env.CODEX_HOME || join(home, ".codex");
-  const piAgent = env.PI_CODING_AGENT_DIR || join(home, ".pi", "agent");
-  const copilot = join(env.COPILOT_HOME || join(home, ".copilot"), "session-state");
+export function defaultTranscriptRoots({
+  claudeConfigDir = process.env.CLAUDE_CONFIG_DIR,
+  codexHome = process.env.CODEX_HOME,
+  piAgentDir = process.env.PI_CODING_AGENT_DIR,
+  copilotHome = process.env.COPILOT_HOME,
+  home = homedir(),
+  stat = statSync,
+} = {}) {
+  const claude = join(claudeConfigDir || join(home, ".claude"), "projects");
+  const codex = codexHome || join(home, ".codex");
+  const piAgent = piAgentDir || join(home, ".pi", "agent");
+  const copilot = join(copilotHome || join(home, ".copilot"), "session-state");
   const found = [claude, join(codex, "sessions"), join(codex, "archived_sessions"),
     join(piAgent, "sessions"), join(piAgent, "pstack"), copilot].filter((root) => {
       try {
@@ -110,7 +117,7 @@ const fileId = (path, stat) => {
 // the name realpathSync gives it when it gives one. The name alone misses
 // links: node resolves `..` in a target before the links in it and keeps a
 // firmlink route as written, and bun opens the target to name it, which macOS
-// refuses for its autofs /home. A dangling or looping link (ENOENT, ELOOP)
+// refuses for its autofs /home or can hang there. A dangling or looping link (ENOENT, ELOOP)
 // spells nothing. When stat fails any other way the route is closed to this
 // process and the link could land anywhere, so the error propagates and the
 // caller leaves the worktree's chat fact unknown.
@@ -118,7 +125,7 @@ export function symlinkTargets(dir, stat = statSync) {
   return readdirSync(dir, { withFileTypes: true }).filter((entry) => entry.isSymbolicLink()).flatMap((entry) => {
     const link = join(dir, entry.name);
     try {
-      return [[link, { id: fileId(link, stat), name: probe(() => realpathSync(link)).value }]];
+      return [[link, { id: fileId(link, stat), name: process.platform === "darwin" && process.versions.bun ? undefined : probe(() => realpathSync(link)).value }]];
     } catch (error) {
       if (["ENOENT", "ELOOP"].includes(error.code)) return [];
       throw error;
@@ -223,7 +230,7 @@ function trunkName(repo) {
 
 function isAncestor(repo, head, trunk) {
   try {
-    git(repo, "merge-base", "--is-ancestor", head, `origin/${trunk}`);
+    git(repo, "merge-base", "--is-ancestor", head, `refs/remotes/origin/${trunk}`);
     return true;
   } catch (error) {
     if (error.status === 1) return false;
@@ -261,7 +268,7 @@ function remoteState(path, branch, head) {
   const sha = git(path, "for-each-ref", "--format=%(objectname)", `refs/remotes/origin/${branch}`);
   if (!sha) return "no-remote";
   if (sha === head) return "pushed";
-  return `ahead${git(path, "rev-list", "--count", `origin/${branch}..HEAD`)}`;
+  return `ahead${git(path, "rev-list", "--count", `refs/remotes/origin/${branch}..HEAD`)}`;
 }
 
 export function duSize(output) {
@@ -309,7 +316,11 @@ function auditWorktree({ path, locked }, { repo, trunk, fetched, prs, chats, bra
     return name === "HEAD" ? null : name;
   });
   const remote = bind(branch, (name) => (name === null ? known("detached") : probe(() => remoteState(path, name, head.value))));
-  const pr = bind(prs, (list) => bind(branch, (name) => known(list.find((entry) => name !== null && entry.headRefName === name) ?? null)));
+  const pr = bind(prs, (list) => bind(branch, (name) => {
+    const matching = list.filter((entry) => name !== null && entry.headRefName === name);
+    // A branch can target several bases; a newer closed PR does not end an older open one.
+    return known(matching.find((entry) => entry.state === "OPEN") ?? matching[0] ?? null);
+  }));
   const lastChat = chats.get(path);
   const recent = bind(lastChat, (ts) => known(ts !== null && Math.trunc((now - ts) / DAY) <= RECENT_DAYS));
   const bucket = classify({ trunk: fetched, head, age, ancestry, dirty, orphans, remote, pr, recent, locked: known(locked) });
