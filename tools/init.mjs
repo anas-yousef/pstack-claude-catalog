@@ -14,6 +14,12 @@ const USAGE = 'usage: node tools/init.mjs [--profile <name>] [--codex-profile <n
 const LIBS = ['remote.mjs', 'pin.mjs', 'sheet.mjs', 'toml.mjs', 'install.mjs']
 const SLUG = /^[a-z0-9][a-z0-9-]*$/
 const RAW = 'https://raw.githubusercontent.com/anas-yousef/pstack-claude-catalog'
+// Retired profile names. A name the selected commit lacks loads its successor, so old pins and flags keep working.
+const RENAMED = {
+  balanced: 'opus', 'design-heavy': 'opus', 'design-heavy-extra': 'opus', lean: 'opus', max: 'opus-max',
+  'design-heavy-fable': 'fable-max', 'design-heavy-fable-split': 'fable',
+  'codex-balanced': 'codex', 'codex-lean': 'codex', 'codex-design-heavy': 'codex', 'codex-design-heavy-extra': 'codex-max',
+}
 
 function fail(message) {
   process.stderr.write(`${message}\n`)
@@ -145,15 +151,17 @@ async function main() {
     const clients = install.assertHomes()
     const pinFile = path.join(root, '.claude', 'pstack-claude-pin.json')
     const pinned = !args.profile && !args.codexProfile && existsSync(pinFile) ? readPin(root) : null
-    const profile = args.profile || pinned?.profile || process.env.PSTACK_PROFILE || 'balanced'
+    let profile = args.profile || pinned?.profile || process.env.PSTACK_PROFILE || 'opus'
     if (!SLUG.test(profile)) fail('profile names must be plain slugs')
-    const explicit = args.codexProfile || (!args.profile && pinned?.codexProfile) || ''
-    let codexProfile = explicit || (profile.startsWith('codex-') ? profile : `codex-${profile}`)
     const { sha } = loaded
-    const claudeSheet = await sheet(remote, sha, profile)
+    let claudeSheet = await sheet(remote, sha, profile)
+    if (!claudeSheet && RENAMED[profile]) claudeSheet = await sheet(remote, sha, profile = RENAMED[profile])
     if (!claudeSheet) throw new Error(`no profile ${profile} at ${sha}`)
+    const explicit = args.codexProfile || (!args.profile && pinned?.codexProfile) || ''
+    let codexProfile = explicit || (profile.endsWith('-max') ? 'codex-max' : 'codex')
     let codexSheet = await sheet(remote, sha, codexProfile)
-    if (!codexSheet && !explicit) codexSheet = await sheet(remote, sha, codexProfile = 'codex-balanced')
+    if (!codexSheet && RENAMED[codexProfile]) codexSheet = await sheet(remote, sha, codexProfile = RENAMED[codexProfile])
+    if (!codexSheet && !explicit) codexSheet = await sheet(remote, sha, codexProfile = 'codex')
     if (!codexSheet) throw new Error(`no profile ${codexProfile} at ${sha}`)
     const marketplace = install.marketplaceFrom(await remote.fetchCatalogText(REPO, sha, '.claude-plugin/marketplace.json'))
     const manifest = JSON.parse(await remote.fetchCatalogText(REPO, sha, 'scripts/lib/owned.json'))

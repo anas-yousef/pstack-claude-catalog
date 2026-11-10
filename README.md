@@ -25,7 +25,7 @@ Pass `--ask-permissions` to remove these bypass values from a previous init, inc
 
 Init trusts this project in `~/.claude.json` and, when Codex is installed, `~/.codex/config.toml` (or `$CODEX_HOME/config.toml`) so the runtimes load its project settings on their first headless session. Per [Claude workspace trust](https://code.claude.com/docs/en/permissions#project-allow-rules-and-workspace-trust), init sets `projects["<repo-root>"].hasTrustDialogAccepted = true`; linked worktrees use the main checkout’s root. Codex trust uses the consumer checkout’s path, and its project `approval_policy` and `sandbox_mode` apply before `codex exec` starts ([configuration precedence](https://learn.chatgpt.com/docs/config-file/config-basic#configuration-precedence), [sandbox and approvals](https://learn.chatgpt.com/docs/agent-approvals-security)). Claude plugins follow catalog main; Codex plugins use the commit recorded in `.claude/pstack-claude-pin.json`, through the documented [`marketplaces.<name>.ref` setting](https://learn.chatgpt.com/docs/config-file/config-reference).
 
-Run the same command again to refresh. It keeps the selected profiles unless you pass profile flags. It installs `scripts/pstack-claude-check.mjs`, its two libraries, and a compatibility shim at `scripts/check-pstack.mjs` for existing CI and hooks. A foreign file at the legacy path stays untouched. Both checker commands keep their Bash allow rules. The command compares the installed pin with catalog main: `current` exits 0, `outdated` exits 1, and `offline` exits 0. It writes nothing. Pins written without a Codex profile default to `codex-balanced`; reading a missing or malformed profile fails.
+Run the same command again to refresh. It keeps the selected profiles unless you pass profile flags. It installs `scripts/pstack-claude-check.mjs`, its two libraries, and a compatibility shim at `scripts/check-pstack.mjs` for existing CI and hooks. A foreign file at the legacy path stays untouched. Both checker commands keep their Bash allow rules. The command compares the installed pin with catalog main: `current` exits 0, `outdated` exits 1, and `offline` exits 0. It writes nothing. Pins written without a Codex profile default to the retired name `codex-balanced`, which init loads as `codex`; reading a missing or malformed profile fails.
 
 Script ownership uses exact SHA-256 hashes. `scripts/lib/owned.json` records shipped hashes and known historical versions with their source commits. Init records installed hashes in `.claude/pstack-claude-owned.json`; an upgrade accepts those exact bytes or a known release's hash. Edited or foreign files at required destinations stop init before any script is overwritten. To change a managed script in this catalog, retain its old hash under `previous`, update `sha256`, and run the manifest test.
 
@@ -40,7 +40,9 @@ Run `node tools/headless.mjs` with authenticated Linux Claude/Codex caches and `
 
 ## Model profiles
 
-Pass `--profile <name>` to select a Claude sheet and its matching `codex-<name>` sheet. `--codex-profile <name>` selects the Codex sheet separately. `max` falls back to `codex-balanced`. `--commit <40-digit-sha>` selects a catalog commit.
+Pass `--profile <name>` to select a Claude sheet; `opus` is the default. A Claude profile ending in `-max` pairs with `codex-max`, and the others pair with `codex`. `--codex-profile <name>` selects the Codex sheet separately. `--commit <40-digit-sha>` selects a catalog commit. `PSTACK_PROFILE` selects the Claude profile when there is no flag and no pin.
+
+Retired names in a pin, flag, or `PSTACK_PROFILE` load their successor when the selected commit lacks them, and the refreshed pin records the new name: `balanced`, `design-heavy`, `design-heavy-extra`, and `lean` become `opus`; `max` becomes `opus-max`; `design-heavy-fable` becomes `fable-max`; `design-heavy-fable-split` becomes `fable`; `codex-balanced`, `codex-lean`, and `codex-design-heavy` become `codex`; `codex-design-heavy-extra` becomes `codex-max`.
 
 Each role row names a model and effort, such as `sonnet @high`. The separate `main session` row controls the session model and effort. Without an installed sheet, skills use their plugin defaults. The files in `profiles/` hold the complete role lists; every profile must cover every role.
 
@@ -48,20 +50,15 @@ Codex sheets and the Codex-facing AGENTS block instruct Codex that `spawn_agent`
 
 | Claude profile | Mix | Main session |
 | --- | --- | --- |
-| `balanced` | Opus for most roles, Sonnet for feature work and workers, Fable for strongest judgment. | Sonnet at `high` |
-| `design-heavy` | Opus at `high` for design and judgment; Sonnet for feature work and workers. | Sonnet at `high` |
-| `design-heavy-extra` | `design-heavy` with the Opus design seats at `xhigh`. | Opus at `high` |
-| `design-heavy-fable` | `design-heavy` with Fable at `high` for design, judgment, and implementation; set `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-fable-5-2` to pin Fable 5.2. | Sonnet at `high` |
-| `design-heavy-fable-split` | `design-heavy` with Fable at `high` for design and judgment only; implementation stays on Sonnet and Opus. Set `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-fable-5-2` to pin Fable 5.2. | Sonnet at `high` |
-| `lean` | Sonnet and Haiku, with Opus for strongest judgment. | Sonnet at `high` |
-| `max` | Opus and Fable at `xhigh`, or `max` for the hardest roles. | Sonnet at `high` |
+| `opus` (default) | Opus for judgment, design, bugs, and reviews; Sonnet for feature work, exploration, and workers. High effort, xhigh for bug-fix, perf-issue, strongest judgment, and the why synthesizer. Panels pair Opus with Sonnet. | Sonnet at `high` |
+| `opus-max` | Opus on every role, including feature work and workers; every effort one level above `opus`, max where a role hunts an unknown cause or judges hardest. | Opus at `xhigh` |
+| `fable` | `opus` with Fable on judgment and prose, strongest judgment, and the first architect seat. The Agent tool accepts only `fable`; run Claude Code with `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-fable-5-2` to pin Fable 5.2. | Sonnet at `high` |
+| `fable-max` | `opus-max` with Fable on design, judgment, and implementation; reviews stay on Opus. The Agent tool accepts only `fable`; run Claude Code with `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-fable-5-2` to pin Fable 5.2. | Opus at `xhigh` |
 
 | Codex profile | Mix | Main session |
 | --- | --- | --- |
-| `codex-balanced` | Sol for feature work and workers; Astra for bugs and judgment; Terra on panels. | Sol at `high` |
-| `codex-design-heavy` | Astra at `high` for design and judgment; Sol for feature work and workers. | Sol at `high` |
-| `codex-design-heavy-extra` | `codex-design-heavy` with the Astra design seats at `xhigh`. | Astra at `high` |
-| `codex-lean` | Sol for most roles; Astra for bugs and strongest judgment; Sol, Terra, and Luna on panels. | Sol at `high` |
+| `codex` | Astra at `high` for design, judgment, bugs, and reviews; Sol for feature work and workers; Terra on panels. | Sol at `high` |
+| `codex-max` | `codex` with the Astra design and review seats at `xhigh`. | Astra at `high` |
 
 A PRD or spec uses `judgment and prose`. Codex sheets set `panel vendors: any`. Each subagent role effort is a minimum only for subagents assigned that role. Only `main session` sets the main session model and effort during init; a bug-fix row at `@xhigh` does not raise a main session at `@high`. The actual session effort comes from [`model_reasoning_effort`](https://learn.chatgpt.com/docs/config-file/config-reference#model_reasoning_effort), subject to explicit user overrides; prose cannot reconfigure a running session. Each installed sheet lists available profiles and a chat override: say `Use <profile> for this chat` to load that profile from the pinned catalog for the chat.
 
