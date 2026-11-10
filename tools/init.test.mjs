@@ -178,8 +178,8 @@ test('a new repo installs both sheets and records the session model', (t) => {
   const pin = JSON.parse(readFileSync(path.join(repo, '.claude', 'pstack-claude-pin.json'), 'utf8'))
   assert.equal(pin.repo, 'https://github.com/anas-yousef/pstack-claude-catalog')
   assert.match(pin.commit, /^[0-9a-f]{40}$/)
-  assert.equal(pin.profile, 'balanced')
-  assert.equal(pin.codexProfile, 'codex-balanced')
+  assert.equal(pin.profile, 'opus')
+  assert.equal(pin.codexProfile, 'codex')
   assert.deepEqual(pin.plugins, ['pstack', 'pstack-extras'])
   assert.equal(existsSync(path.join(repo, 'plugins')), false)
 
@@ -189,7 +189,7 @@ test('a new repo installs both sheets and records the session model', (t) => {
   assert.equal(agentsMd, COMBINED_MARKER)
   assert.equal((agentsMd.match(/^@\.claude\/pstack-models\.md$/gm) || []).length, 1)
   assert.doesNotMatch(agentsMd, /CLAUDE\.md/)
-  assert.match(readFileSync(path.join(repo, '.claude', 'pstack-models.md'), 'utf8'), /^Profile: balanced\./m)
+  assert.match(readFileSync(path.join(repo, '.claude', 'pstack-models.md'), 'utf8'), /^Profile: opus\./m)
   assert.deepEqual(readdirSync(path.join(repo, 'scripts', 'lib')).sort(), ['pin.mjs', 'remote.mjs'])
   assert.equal(existsSync(path.join(repo, 'scripts', 'pstack-claude-check.mjs')), true)
   assert.equal(existsSync(path.join(repo, 'scripts', 'setup-pstack-claude.mjs')), false)
@@ -404,7 +404,7 @@ test('--ask-permissions leaves permission keys absent or unchanged across profil
       }))
       writeFileSync(path.join(repo, '.codex', 'config.toml'), 'approval_policy = "on-request" # keep\nsandbox_mode = "read-only"\n\n[features]\nmulti_agent = true\n')
     }
-    const args = ['--ask-permissions', '--profile', 'lean', '--codex-profile', 'codex-design-heavy']
+    const args = ['--ask-permissions', '--profile', 'fable', '--codex-profile', 'codex']
     const init = pipeInit(repo, home, args)
     assert.equal(init.status, 0, init.stderr)
     const config = readFileSync(path.join(repo, '.codex', 'config.toml'), 'utf8')
@@ -422,7 +422,7 @@ test('--ask-permissions leaves permission keys absent or unchanged across profil
     assert.equal(again.status, 0, again.stderr)
     assertSameBytes(saved, snapshot(repo, home))
 
-    const defaults = pipeInit(repo, home, ['--profile', 'design-heavy-extra'])
+    const defaults = pipeInit(repo, home, ['--profile', 'opus-max'])
     assert.equal(defaults.status, 0, defaults.stderr)
     assert.equal(settings(repo).permissions.defaultMode, existing ? 'plan' : undefined)
     assert.equal(JSON.parse(readFileSync(path.join(home, '.claude/settings.json'))).permissions.defaultMode, 'bypassPermissions')
@@ -446,19 +446,19 @@ test('--ask-permissions leaves permission keys absent or unchanged across profil
 
 test('flags select the pin and a bad profile writes nothing', (t) => {
   const { home, repo } = fresh(t)
-  const selected = run(repo, home, INIT, ['--profile', 'lean', '--codex-profile', 'codex-lean', '--commit', MAIN])
+  const selected = run(repo, home, INIT, ['--profile', 'fable', '--codex-profile', 'codex-max', '--commit', MAIN])
   assert.equal(selected.status, 0, selected.stderr)
   assert.equal(selected.stdout, '')
   const pin = JSON.parse(readFileSync(path.join(repo, '.claude', 'pstack-claude-pin.json'), 'utf8'))
-  assert.equal(pin.profile, 'lean')
-  assert.equal(pin.codexProfile, 'codex-lean')
+  assert.equal(pin.profile, 'fable')
+  assert.equal(pin.codexProfile, 'codex-max')
   assert.equal(pin.commit, MAIN)
-  const again = run(repo, home, INIT, ['--profile', 'lean', '--codex-profile', 'codex-lean', '--commit', MAIN])
+  const again = run(repo, home, INIT, ['--profile', 'fable', '--codex-profile', 'codex-max', '--commit', MAIN])
   assert.equal(again.status, 0, again.stderr)
   assert.equal(readFileSync(path.join(repo, '.claude', 'pstack-claude-pin.json'), 'utf8'), `${JSON.stringify(pin, null, 2)}\n`)
 
   const { home: otherHome, repo: other } = fresh(t)
-  const bad = run(other, otherHome, INIT, ['--profile', '../balanced'])
+  const bad = run(other, otherHome, INIT, ['--profile', '../opus'])
   assert.notEqual(bad.status, 0)
   assert.equal(existsSync(path.join(other, '.claude', 'pstack-claude-pin.json')), false)
   assert.match(bad.stderr, /plain slugs/)
@@ -467,14 +467,14 @@ test('flags select the pin and a bad profile writes nothing', (t) => {
 test('selected role sheets stay separate and offer a per-chat profile override', (t) => {
   const { home, repo } = fresh(t)
   writeFileSync(path.join(repo, 'CLAUDE.md'), '# Product\n')
-  const init = pipeInit(repo, home, ['--profile', 'lean', '--codex-profile', 'codex-design-heavy-extra'])
+  const init = pipeInit(repo, home, ['--profile', 'fable', '--codex-profile', 'codex-max'])
   assert.equal(init.status, 0, init.stderr)
   const pin = readPin(repo)
   const codex = readFileSync(path.join(repo, '.codex', 'pstack-models.md'), 'utf8')
   const claude = readFileSync(path.join(repo, '.claude', 'pstack-models.md'), 'utf8')
   for (const [sheet, profile, profiles] of [
-    [codex, pin.codexProfile, ['codex-balanced', 'codex-design-heavy', 'codex-design-heavy-extra', 'codex-lean']],
-    [claude, pin.profile, ['balanced', 'design-heavy', 'design-heavy-extra', 'design-heavy-fable', 'design-heavy-fable-split', 'lean', 'max']],
+    [codex, pin.codexProfile, ['codex', 'codex-max']],
+    [claude, pin.profile, ['fable', 'fable-max', 'opus', 'opus-max']],
   ]) {
     const source = readFileSync(path.join(ROOT, 'profiles', `${profile}.md`), 'utf8')
     assert.ok(sheet.includes(source), profile)
@@ -487,7 +487,7 @@ test('selected role sheets stay separate and offer a per-chat profile override',
     assert.match(guide, /fetch.*over the network/)
   }
   assert.match(codex, /^judgment and prose: gpt-6-astra @xhigh$/m)
-  assert.match(claude, /^judgment and prose: sonnet @high$/m)
+  assert.match(claude, /^judgment and prose: fable @high$/m)
   const agents = readFileSync(path.join(repo, 'AGENTS.md'), 'utf8')
   assert.match(agents, /Codex.*\.codex\/pstack-models\.md/)
   assert.match(agents, /Claude.*\.claude\/pstack-models\.md/)
@@ -498,12 +498,12 @@ test('selected role sheets stay separate and offer a per-chat profile override',
   assert.equal(again.status, 0, again.stderr)
   assert.equal(readFileSync(path.join(repo, '.codex', 'pstack-models.md'), 'utf8'), codex)
   assert.equal(readFileSync(path.join(repo, '.claude', 'pstack-models.md'), 'utf8'), claude)
-  const switched = pipeInit(repo, home, ['--codex-profile', 'codex-lean', '--profile', 'lean'])
+  const switched = pipeInit(repo, home, ['--codex-profile', 'codex', '--profile', 'fable'])
   assert.equal(switched.status, 0, switched.stderr)
   const next = readFileSync(path.join(repo, '.codex', 'pstack-models.md'), 'utf8')
-  assert.match(next, /^Profile: codex-lean\./m)
-  assert.match(next, /^judgment and prose: gpt-6\.1-sol @high$/m)
-  assert.doesNotMatch(next, /^Profile: codex-design-heavy-extra\./m)
+  assert.match(next, /^Profile: codex\./m)
+  assert.match(next, /^judgment and prose: gpt-6-astra @high$/m)
+  assert.doesNotMatch(next, /^Profile: codex-max\./m)
   assert.equal(readFileSync(path.join(repo, '.claude', 'pstack-models.md'), 'utf8'), claude)
 })
 
@@ -526,15 +526,15 @@ test('profile lists follow the catalog index', (t) => {
   writeFileSync(path.join(catalog, 'profiles', 'codex-future.md'), 'new Codex profile\n')
   writeFileSync(path.join(catalog, 'profiles', 'notes.txt'), 'not a profile\n')
   mkdirSync(path.join(catalog, 'profiles', 'directory.md'))
-  rmSync(path.join(catalog, 'profiles', 'max.md'))
+  rmSync(path.join(catalog, 'profiles', 'opus-max.md'))
   const index = path.join(catalog, 'profiles', 'index.json')
-  const names = JSON.parse(readFileSync(index, 'utf8')).filter((name) => name !== 'max')
+  const names = JSON.parse(readFileSync(index, 'utf8')).filter((name) => name !== 'opus-max')
   writeFileSync(index, JSON.stringify([...names, 'future', 'codex-future'].sort()))
   const init = pipeInit(repo, home, ['--commit', MAIN], { PSTACK_CATALOG: catalog })
   assert.equal(init.status, 0, init.stderr)
   for (const [runtime, expected] of [
-    ['claude', 'balanced, design-heavy, design-heavy-extra, design-heavy-fable, design-heavy-fable-split, future, lean'],
-    ['codex', 'codex-balanced, codex-design-heavy, codex-design-heavy-extra, codex-future, codex-lean'],
+    ['claude', 'fable, fable-max, future, opus'],
+    ['codex', 'codex, codex-future, codex-max'],
   ]) {
     const sheet = readFileSync(path.join(repo, `.${runtime}`, 'pstack-models.md'), 'utf8')
     assert.ok(sheet.includes(`Profiles: ${expected}.`))
@@ -562,15 +562,12 @@ test('every Codex sheet carries the spawn_agent naming rule and its roles yield 
 
 test('every sheet names its own main session', () => {
   const expect = {
-    'balanced.md': 'main session: sonnet @high',
-    'design-heavy.md': 'main session: sonnet @high',
-    'design-heavy-extra.md': 'main session: opus @high',
-    'lean.md': 'main session: sonnet @high',
-    'max.md': 'main session: sonnet @high',
-    'codex-balanced.md': 'main session: gpt-6.1-sol @high',
-    'codex-design-heavy.md': 'main session: gpt-6.1-sol @high',
-    'codex-design-heavy-extra.md': 'main session: gpt-6-astra @high',
-    'codex-lean.md': 'main session: gpt-6.1-sol @high',
+    'opus.md': 'main session: sonnet @high',
+    'opus-max.md': 'main session: opus @xhigh',
+    'fable.md': 'main session: sonnet @high',
+    'fable-max.md': 'main session: opus @xhigh',
+    'codex.md': 'main session: gpt-6.1-sol @high',
+    'codex-max.md': 'main session: gpt-6-astra @high',
   }
   const check = path.join(ROOT, 'plugins/pstack/skills/setup-pstack/scripts/check-sheet.sh')
   for (const [name, line] of Object.entries(expect)) {
@@ -584,29 +581,29 @@ test('every sheet names its own main session', () => {
   }
 })
 
-test('design-heavy-extra writes opus and astra for the main session', (t) => {
+test('opus-max writes opus and astra for the main session', (t) => {
   const { home, repo } = fresh(t)
-  const selected = pipeInit(repo, home, ['--profile', 'design-heavy-extra', '--codex-profile', 'codex-design-heavy-extra'], { PSTACK_PROFILE: 'lean' })
+  const selected = pipeInit(repo, home, ['--profile', 'opus-max', '--codex-profile', 'codex-max'], { PSTACK_PROFILE: 'fable' })
   assert.equal(selected.status, 0, selected.stderr)
   assert.equal(selected.stdout, '')
   const pin = JSON.parse(readFileSync(path.join(repo, '.claude', 'pstack-claude-pin.json'), 'utf8'))
-  assert.equal(pin.profile, 'design-heavy-extra')
-  assert.equal(pin.codexProfile, 'codex-design-heavy-extra')
+  assert.equal(pin.profile, 'opus-max')
+  assert.equal(pin.codexProfile, 'codex-max')
   assert.equal(settings(repo).model, 'opus')
-  assert.equal(settings(repo).effortLevel, 'high')
+  assert.equal(settings(repo).effortLevel, 'xhigh')
   assert.deepEqual(modelLines(repo), ['model = "gpt-6-astra"', 'model_reasoning_effort = "high"'])
 })
 
 test('PSTACK_PROFILE switches the Claude main session', (t) => {
   const { home, repo } = fresh(t)
-  const selected = pipeInit(repo, home, [], { PSTACK_PROFILE: 'design-heavy-extra' })
+  const selected = pipeInit(repo, home, [], { PSTACK_PROFILE: 'opus-max' })
   assert.equal(selected.status, 0, selected.stderr)
   assert.equal(selected.stdout, '')
   const pin = JSON.parse(readFileSync(path.join(repo, '.claude', 'pstack-claude-pin.json'), 'utf8'))
-  assert.equal(pin.profile, 'design-heavy-extra')
-  assert.equal(pin.codexProfile, 'codex-design-heavy-extra')
+  assert.equal(pin.profile, 'opus-max')
+  assert.equal(pin.codexProfile, 'codex-max')
   assert.equal(settings(repo).model, 'opus')
-  assert.equal(settings(repo).effortLevel, 'high')
+  assert.equal(settings(repo).effortLevel, 'xhigh')
   assert.deepEqual(modelLines(repo), ['model = "gpt-6-astra"', 'model_reasoning_effort = "high"'])
 })
 
@@ -618,8 +615,8 @@ test('a role row edit does not change the main session', (t) => {
   cpSync(path.join(ROOT, 'scripts'), path.join(catalog, 'scripts'), { recursive: true })
   mkdirSync(path.join(catalog, '.claude-plugin'), { recursive: true })
   cpSync(path.join(ROOT, '.claude-plugin', 'marketplace.json'), path.join(catalog, '.claude-plugin', 'marketplace.json'))
-  replaceLine(path.join(catalog, 'profiles', 'balanced.md'), 'feature, refactoring:', 'feature, refactoring: haiku @low')
-  replaceLine(path.join(catalog, 'profiles', 'codex-balanced.md'), 'feature, refactoring:', 'feature, refactoring: gpt-6-luna @low')
+  replaceLine(path.join(catalog, 'profiles', 'opus.md'), 'feature, refactoring:', 'feature, refactoring: haiku @low')
+  replaceLine(path.join(catalog, 'profiles', 'codex.md'), 'feature, refactoring:', 'feature, refactoring: gpt-6-luna @low')
   const init = pipeInit(repo, home, [], { PSTACK_CATALOG: catalog })
   assert.equal(init.status, 0, init.stderr)
   assert.match(readFileSync(path.join(repo, '.claude', 'pstack-models.md'), 'utf8'), /^feature, refactoring: haiku @low$/m)
@@ -639,7 +636,7 @@ test('a sheet without a main session row makes init exit non-zero', (t) => {
   cpSync(path.join(ROOT, 'scripts'), path.join(catalog, 'scripts'), { recursive: true })
   mkdirSync(path.join(catalog, '.claude-plugin'), { recursive: true })
   cpSync(path.join(ROOT, '.claude-plugin', 'marketplace.json'), path.join(catalog, '.claude-plugin', 'marketplace.json'))
-  const sheet = path.join(catalog, 'profiles', 'balanced.md')
+  const sheet = path.join(catalog, 'profiles', 'opus.md')
   writeFileSync(sheet, readFileSync(sheet, 'utf8').split('\n').filter((line) => !line.startsWith('main session:')).join('\n'))
   const init = pipeInit(repo, home, [], { PSTACK_CATALOG: catalog })
   assert.notEqual(init.status, 0)
@@ -692,23 +689,23 @@ test('user toml survives root edits byte for byte', (t) => {
 
 test('profile flags pair the codex sheet unless one is named', (t) => {
   const { home, repo } = fresh(t)
-  const paired = pipeInit(repo, home, ['--profile', 'lean'], { PSTACK_PROFILE: 'max' })
+  const paired = pipeInit(repo, home, ['--profile', 'fable'], { PSTACK_PROFILE: 'fable-max' })
   assert.equal(paired.status, 0, paired.stderr)
   const pin = JSON.parse(readFileSync(path.join(repo, '.claude', 'pstack-claude-pin.json'), 'utf8'))
-  assert.equal(pin.profile, 'lean')
-  assert.equal(pin.codexProfile, 'codex-lean')
+  assert.equal(pin.profile, 'fable')
+  assert.equal(pin.codexProfile, 'codex')
   const { home: maxHome, repo: maxRepo } = fresh(t)
-  const maxed = pipeInit(maxRepo, maxHome, [], { PSTACK_PROFILE: 'max' })
+  const maxed = pipeInit(maxRepo, maxHome, [], { PSTACK_PROFILE: 'fable-max' })
   assert.equal(maxed.status, 0, maxed.stderr)
   const maxPin = JSON.parse(readFileSync(path.join(maxRepo, '.claude', 'pstack-claude-pin.json'), 'utf8'))
-  assert.equal(maxPin.profile, 'max')
-  assert.equal(maxPin.codexProfile, 'codex-balanced')
+  assert.equal(maxPin.profile, 'fable-max')
+  assert.equal(maxPin.codexProfile, 'codex-max')
   const { home: overHome, repo: overRepo } = fresh(t)
-  const over = pipeInit(overRepo, overHome, ['--codex-profile', 'codex-lean'], { PSTACK_PROFILE: 'design-heavy-extra' })
+  const over = pipeInit(overRepo, overHome, ['--codex-profile', 'codex'], { PSTACK_PROFILE: 'opus-max' })
   assert.equal(over.status, 0, over.stderr)
   const overPin = JSON.parse(readFileSync(path.join(overRepo, '.claude', 'pstack-claude-pin.json'), 'utf8'))
-  assert.equal(overPin.profile, 'design-heavy-extra')
-  assert.equal(overPin.codexProfile, 'codex-lean')
+  assert.equal(overPin.profile, 'opus-max')
+  assert.equal(overPin.codexProfile, 'codex')
   assert.deepEqual(modelLines(overRepo), ['model = "gpt-6.1-sol"', 'model_reasoning_effort = "high"'])
 })
 
@@ -757,7 +754,7 @@ test('a broken settings file is replaced and an old heading is migrated', (t) =>
   cpSync(path.join(ROOT, 'scripts'), path.join(catalog, 'scripts'), { recursive: true })
   mkdirSync(path.join(catalog, '.claude-plugin'), { recursive: true })
   cpSync(path.join(ROOT, '.claude-plugin', 'marketplace.json'), path.join(catalog, '.claude-plugin', 'marketplace.json'))
-  const sheet = path.join(catalog, 'profiles', 'balanced.md')
+  const sheet = path.join(catalog, 'profiles', 'opus.md')
   writeFileSync(sheet, readFileSync(sheet, 'utf8').replace('main session: sonnet @high', 'main session: sonnet @max'))
   writeFileSync(settingsFile, `${JSON.stringify({ model: 'old', effortLevel: 'xhigh' }, null, 2)}\n`)
   const init = pipeInit(repo, home, [], { PSTACK_CATALOG: catalog })
@@ -918,8 +915,8 @@ test('piped init loads every lib from the selected commit', { timeout: 60000 }, 
   assert.equal(existsSync(cache), false)
   const count = (rel) => hits.filter((hit) => hit === `/${sha}/${rel}`).length
   assert.equal(count('.claude-plugin/marketplace.json'), 1)
-  assert.equal(count('profiles/balanced.md'), 1)
-  assert.equal(count('profiles/codex-balanced.md'), 1)
+  assert.equal(count('profiles/opus.md'), 1)
+  assert.equal(count('profiles/codex.md'), 1)
   assert.equal(count('profiles/index.json'), 1)
   const pin = readPin(repo)
   assert.equal(pin.commit, sha)
@@ -934,8 +931,8 @@ test('piped init loads every lib from the selected commit', { timeout: 60000 }, 
   assert.equal(again.status, 0, `${again.stderr}\n${rest.join('\n')}`)
   assert.ok(rest.length > 0)
   const next = readPin(repo)
-  assert.equal(next.profile, 'balanced')
-  assert.equal(next.codexProfile, 'codex-balanced')
+  assert.equal(next.profile, 'opus')
+  assert.equal(next.codexProfile, 'codex')
   const body = rest.filter((hit) => hit !== '/main/scripts/lib/remote.mjs')
   assert.ok(body.every((hit) => hit.startsWith(`/${next.commit}/`)))
   assert.equal(body.filter((hit) => hit.endsWith('/profiles/index.json')).length, 1)
@@ -945,14 +942,32 @@ test('piped init loads every lib from the selected commit', { timeout: 60000 }, 
 
 test('a second init with no flags keeps the pinned profiles', (t) => {
   const { home, repo } = fresh(t)
-  const first = pipeInit(repo, home, ['--profile', 'lean', '--codex-profile', 'codex-lean'])
+  const first = pipeInit(repo, home, ['--profile', 'fable', '--codex-profile', 'codex-max'])
   assert.equal(first.status, 0, first.stderr)
-  const again = pipeInit(repo, home, [], { PSTACK_PROFILE: 'max' })
+  const again = pipeInit(repo, home, [], { PSTACK_PROFILE: 'opus-max' })
   assert.equal(again.status, 0, again.stderr)
   const pin = JSON.parse(readFileSync(path.join(repo, '.claude', 'pstack-claude-pin.json'), 'utf8'))
-  assert.equal(pin.profile, 'lean')
-  assert.equal(pin.codexProfile, 'codex-lean')
+  assert.equal(pin.profile, 'fable')
+  assert.equal(pin.codexProfile, 'codex-max')
   assert.equal(settings(repo).model, 'sonnet')
+})
+
+test('a pin with a retired profile name refreshes to its successor', (t) => {
+  for (const [old, oldCodex, profile, codexProfile] of [
+    ['design-heavy-fable-split', 'codex-design-heavy', 'fable', 'codex'],
+    ['design-heavy-extra', 'codex-design-heavy-extra', 'opus', 'codex-max'],
+    ['max', 'codex-balanced', 'opus-max', 'codex'],
+  ]) {
+    const { home, repo } = fresh(t)
+    mkdirSync(path.join(repo, '.claude'))
+    writeFileSync(path.join(repo, '.claude', 'pstack-claude-pin.json'), JSON.stringify({ repo: 'https://github.com/anas-yousef/pstack-claude-catalog', commit: MAIN, profile: old, codexProfile: oldCodex, plugins: ['pstack', 'pstack-extras'] }))
+    const init = pipeInit(repo, home)
+    assert.equal(init.status, 0, init.stderr)
+    const pin = readPin(repo)
+    assert.equal(pin.profile, profile)
+    assert.equal(pin.codexProfile, codexProfile)
+    assert.match(readFileSync(path.join(repo, '.claude', 'pstack-models.md'), 'utf8'), new RegExp(`^Profile: ${profile}\\.`, 'm'))
+  }
 })
 
 test('init writes at the git root and falls back to cwd', (t) => {
@@ -1261,7 +1276,7 @@ test('Claude command failures still complete Codex setup in CODEX_HOME', (t) => 
     const result = pipeInit(repo, home, [], { CODEX_HOME: codexHome, PSTACK_TEST_CLAUDE_FAIL: fail })
     assert.notEqual(result.status, 0)
     assert.match(result.stderr, /^Claude plugin setup failed \(Codex setup completed\): claude plugin .*fixture install failure/)
-    assert.match(readFileSync(path.join(repo, '.codex/pstack-models.md'), 'utf8'), /Profile: codex-balanced/)
+    assert.match(readFileSync(path.join(repo, '.codex/pstack-models.md'), 'utf8'), /Profile: codex\./)
     assert.match(readFileSync(path.join(repo, '.codex/config.toml'), 'utf8'), /approval_policy = "never"/)
     const trust = readFileSync(path.join(codexHome, 'config.toml'), 'utf8')
     assert.ok(trust.includes(`[projects."${repo}"]\ntrust_level = "trusted"`), trust)

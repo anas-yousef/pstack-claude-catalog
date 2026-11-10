@@ -1,13 +1,8 @@
 [
-  "balanced",
-  "codex-balanced",
-  "codex-design-heavy",
-  "codex-design-heavy-extra",
-  "codex-lean",
-  "design-heavy",
-  "design-heavy-extra",
-  "design-heavy-fable",
-  "design-heavy-fable-split",
-  "lean",
-  "max"
+  "codex",
+  "codex-max",
+  "fable",
+  "fable-max",
+  "opus",
+  "opus-max"
 ]

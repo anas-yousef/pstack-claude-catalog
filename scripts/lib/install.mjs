@@ -229,7 +229,7 @@ export async function install(root, pin, claudeSheet, codexSheet, marketplace, a
   const claudeDir = path.join(root, '.claude')
   const codexDir = path.join(root, '.codex')
   mkdirSync(claudeDir, { recursive: true })
-  writeFileSync(path.join(claudeDir, 'pstack-models.md'), withProfiles(claudeSheet, pin, profiles.filter((name) => !name.startsWith('codex-'))))
+  writeFileSync(path.join(claudeDir, 'pstack-models.md'), withProfiles(claudeSheet, pin, profiles.filter((name) => name !== 'codex' && !name.startsWith('codex-'))))
   writeSettings(path.join(claudeDir, 'settings.json'), sessionSettings(claudeSheet), pin, marketplace, askPermissions)
   userPermissions(askPermissions)
   const claudeMd = path.join(root, 'CLAUDE.md')
@@ -251,7 +251,7 @@ export async function install(root, pin, claudeSheet, codexSheet, marketplace, a
   if (clients.codex) {
     try {
       mkdirSync(codexDir, { recursive: true })
-      writeFileSync(path.join(codexDir, 'pstack-models.md'), withProfiles(codexSheet, pin, profiles.filter((name) => name.startsWith('codex-'))))
+      writeFileSync(path.join(codexDir, 'pstack-models.md'), withProfiles(codexSheet, pin, profiles.filter((name) => name === 'codex' || name.startsWith('codex-'))))
       const session = sessionSettings(codexSheet)
       const quoted = abs.replaceAll('\\', '\\\\').replaceAll('"', '\\"')
       writeConfig(path.join(codexDir, 'config.toml'), {
