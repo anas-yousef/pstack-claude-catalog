@@ -474,7 +474,7 @@ test('selected role sheets stay separate and offer a per-chat profile override',
   const claude = readFileSync(path.join(repo, '.claude', 'pstack-models.md'), 'utf8')
   for (const [sheet, profile, profiles] of [
     [codex, pin.codexProfile, ['codex-balanced', 'codex-design-heavy', 'codex-design-heavy-extra', 'codex-lean']],
-    [claude, pin.profile, ['balanced', 'design-heavy', 'design-heavy-extra', 'lean', 'max']],
+    [claude, pin.profile, ['balanced', 'design-heavy', 'design-heavy-extra', 'design-heavy-fable', 'lean', 'max']],
   ]) {
     const source = readFileSync(path.join(ROOT, 'profiles', `${profile}.md`), 'utf8')
     assert.ok(sheet.includes(source), profile)
@@ -533,7 +533,7 @@ test('profile lists follow the catalog index', (t) => {
   const init = pipeInit(repo, home, ['--commit', MAIN], { PSTACK_CATALOG: catalog })
   assert.equal(init.status, 0, init.stderr)
   for (const [runtime, expected] of [
-    ['claude', 'balanced, design-heavy, design-heavy-extra, future, lean'],
+    ['claude', 'balanced, design-heavy, design-heavy-extra, design-heavy-fable, future, lean'],
     ['codex', 'codex-balanced, codex-design-heavy, codex-design-heavy-extra, codex-future, codex-lean'],
   ]) {
     const sheet = readFileSync(path.join(repo, `.${runtime}`, 'pstack-models.md'), 'utf8')
