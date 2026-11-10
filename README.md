@@ -51,6 +51,7 @@ Codex sheets and the Codex-facing AGENTS block instruct Codex that `spawn_agent`
 | `balanced` | Opus for most roles, Sonnet for feature work and workers, Fable for strongest judgment. | Sonnet at `high` |
 | `design-heavy` | Opus at `high` for design and judgment; Sonnet for feature work and workers. | Sonnet at `high` |
 | `design-heavy-extra` | `design-heavy` with the Opus design seats at `xhigh`. | Opus at `high` |
+| `design-heavy-fable` | `design-heavy` with Fable at `high` for design, judgment, and implementation; set `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-fable-5-2` to pin Fable 5.2. | Sonnet at `high` |
 | `lean` | Sonnet and Haiku, with Opus for strongest judgment. | Sonnet at `high` |
 | `max` | Opus and Fable at `xhigh`, or `max` for the hardest roles. | Sonnet at `high` |
 
