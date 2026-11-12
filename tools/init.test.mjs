@@ -204,7 +204,7 @@ test('a new repo installs both sheets and records the session model', (t) => {
   console.log(`fresh-HOME config.toml\n${lines.join('\n')}`)
   assert.deepEqual(lines, ['model = "gpt-6.1-sol"', 'model_reasoning_effort = "high"'])
   assert.deepEqual(settings(repo), {
-    model: 'sonnet',
+    model: 'opus',
     effortLevel: 'high',
     permissions: { allow: CHECK_RULES },
     extraKnownMarketplaces: {
@@ -364,7 +364,7 @@ test('an existing repo keeps its docs and product skills', (t) => {
   console.log(`existing-repo project config.toml\n${lines.join('\n')}`)
   assert.deepEqual(lines, ['model = "gpt-6.1-sol"', 'model_reasoning_effort = "high"'])
   const parsed = settings(repo)
-  assert.equal(parsed.model, 'sonnet')
+  assert.equal(parsed.model, 'opus')
   assert.equal(parsed.effortLevel, 'high')
   assert.equal(parsed.permissions.defaultMode, undefined)
   assert.equal(parsed.theme, 'dark')
@@ -562,9 +562,9 @@ test('every Codex sheet carries the spawn_agent naming rule and its roles yield 
 
 test('every sheet names its own main session', () => {
   const expect = {
-    'opus.md': 'main session: sonnet @high',
+    'opus.md': 'main session: opus @high',
     'opus-max.md': 'main session: opus @xhigh',
-    'fable.md': 'main session: sonnet @high',
+    'fable.md': 'main session: opus @high',
     'fable-max.md': 'main session: opus @xhigh',
     'codex.md': 'main session: gpt-6.1-sol @high',
     'codex-max.md': 'main session: gpt-6-astra @high',
@@ -623,7 +623,7 @@ test('a role row edit does not change the main session', (t) => {
   assert.match(readFileSync(path.join(repo, '.codex', 'pstack-models.md'), 'utf8'), /^feature, refactoring: gpt-6-luna @low$/m)
   assert.equal(existsSync(path.join(home, '.codex', 'pstack-models.md')), false)
   assert.equal(existsSync(path.join(home, '.codex', 'AGENTS.md')), false)
-  assert.equal(settings(repo).model, 'sonnet')
+  assert.equal(settings(repo).model, 'opus')
   assert.equal(settings(repo).effortLevel, 'high')
   assert.deepEqual(modelLines(repo), ['model = "gpt-6.1-sol"', 'model_reasoning_effort = "high"'])
 })
@@ -755,12 +755,12 @@ test('a broken settings file is replaced and an old heading is migrated', (t) =>
   mkdirSync(path.join(catalog, '.claude-plugin'), { recursive: true })
   cpSync(path.join(ROOT, '.claude-plugin', 'marketplace.json'), path.join(catalog, '.claude-plugin', 'marketplace.json'))
   const sheet = path.join(catalog, 'profiles', 'opus.md')
-  writeFileSync(sheet, readFileSync(sheet, 'utf8').replace('main session: sonnet @high', 'main session: sonnet @max'))
+  writeFileSync(sheet, readFileSync(sheet, 'utf8').replace('main session: opus @high', 'main session: opus @max'))
   writeFileSync(settingsFile, `${JSON.stringify({ model: 'old', effortLevel: 'xhigh' }, null, 2)}\n`)
   const init = pipeInit(repo, home, [], { PSTACK_CATALOG: catalog })
   assert.equal(init.status, 0, init.stderr)
   const parsed = settings(repo)
-  assert.equal(parsed.model, 'sonnet')
+  assert.equal(parsed.model, 'opus')
   assert.equal(Object.hasOwn(parsed, 'effortLevel'), false)
   const agents = readFileSync(path.join(repo, 'AGENTS.md'), 'utf8')
   assert.match(agents, /<!-- pstack:begin -->/)
@@ -777,7 +777,7 @@ test('truncated settings are backed up', (t) => {
   assert.equal(init.status, 0, init.stderr)
   assert.ok(init.stdout.includes(`backed up ${settings} to ${settings}.bak`))
   assert.equal(readFileSync(`${settings}.bak`, 'utf8'), '{')
-  assert.equal(JSON.parse(readFileSync(settings, 'utf8')).model, 'sonnet')
+  assert.equal(JSON.parse(readFileSync(settings, 'utf8')).model, 'opus')
   const again = pipeInit(repo, home)
   assert.equal(again.status, 0, again.stderr)
   assert.equal(again.stdout, '')
@@ -949,7 +949,7 @@ test('a second init with no flags keeps the pinned profiles', (t) => {
   const pin = JSON.parse(readFileSync(path.join(repo, '.claude', 'pstack-claude-pin.json'), 'utf8'))
   assert.equal(pin.profile, 'fable')
   assert.equal(pin.codexProfile, 'codex-max')
-  assert.equal(settings(repo).model, 'sonnet')
+  assert.equal(settings(repo).model, 'opus')
 })
 
 test('a pin with a retired profile name refreshes to its successor', (t) => {
