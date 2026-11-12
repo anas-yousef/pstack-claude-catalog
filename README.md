@@ -50,9 +50,9 @@ Codex sheets and the Codex-facing AGENTS block instruct Codex that `spawn_agent`
 
 | Claude profile | Mix | Main session |
 | --- | --- | --- |
-| `opus` (default) | Opus for judgment, design, bugs, and reviews; Sonnet for feature work, exploration, and workers. High effort, xhigh for bug-fix, perf-issue, strongest judgment, and the why synthesizer. Panels pair Opus with Sonnet. | Sonnet at `high` |
+| `opus` (default) | Opus for judgment, design, bugs, and reviews; Sonnet for feature work, exploration, and workers. High effort, xhigh for bug-fix, perf-issue, strongest judgment, and the why synthesizer. Panels pair Opus with Sonnet. | Opus at `high` |
 | `opus-max` | Opus on every role, including feature work and workers; every effort one level above `opus`, max where a role hunts an unknown cause or judges hardest. | Opus at `xhigh` |
-| `fable` | `opus` with Fable on judgment and prose, strongest judgment, and the first architect seat. The Agent tool accepts only `fable`; run Claude Code with `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-fable-5-2` to pin Fable 5.2. | Sonnet at `high` |
+| `fable` | `opus` with Fable on judgment and prose, strongest judgment, and the first architect seat. The Agent tool accepts only `fable`; run Claude Code with `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-fable-5-2` to pin Fable 5.2. | Opus at `high` |
 | `fable-max` | `opus-max` with Fable on design, judgment, and implementation; reviews stay on Opus. The Agent tool accepts only `fable`; run Claude Code with `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-fable-5-2` to pin Fable 5.2. | Opus at `xhigh` |
 
 | Codex profile | Mix | Main session |
