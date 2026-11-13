@@ -4,7 +4,7 @@
     "name": "Anas Yousef",
     "url": "https://github.com/anas-yousef"
   },
-  "description": "Pinned Claude Code catalog: the pstack-claude port as upstream ships it, plus vendored cursor-team-kit, superpowers, mattpocock, addyosmani/agent-skills, vercel-labs/agent-skills, and supabase/agent-skills.",
+  "description": "Pinned Claude Code catalog: the pstack-claude port as upstream ships it, plus vendored cursor-team-kit, superpowers, mattpocock, addyosmani/agent-skills, vercel-labs/agent-skills, supabase/agent-skills, and meta/astryx.",
   "plugins": [
     {
       "name": "pstack",
