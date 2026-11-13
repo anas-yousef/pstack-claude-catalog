@@ -122,3 +122,13 @@ supabase/agent-skills
   Files:   plugins/pstack-extras/skills/supabase (author supabase, version 0.1.2),
            supabase-postgres-best-practices (version 1.1.1)
   Changes: none.
+
+astryx
+  Source:  https://github.com/meta/astryx (plugins/astryx/skills/astryx/)
+  Commit:  65ed0c0171c93e13eb3028743a4e04138d3c8146
+  License: MIT, Copyright (c) 2026 Meta Platforms, Inc. See
+           third-party/astryx/LICENSE.
+  Files:   plugins/pstack-extras/skills/astryx
+  Changes: none.
+  Not vendored: the upstream plugin manifests and marketplace files. The
+           skill ships inside pstack-extras instead of a separate plugin.

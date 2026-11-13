@@ -85,6 +85,6 @@ The sync tool preserves original extras and setup files. `plugins/pstack/` must 
 
 ## Thanks and license
 
-[Lauren Tan](https://github.com/cursor/plugins/tree/main/pstack) wrote pstack; [Michael Denyer](https://github.com/michael-denyer/pstack-claude) ported it to Claude Code. Additional skills come from Cursor, Jesse Vincent, Matt Pocock, Addy Osmani, Vercel Labs, and Supabase.
+[Lauren Tan](https://github.com/cursor/plugins/tree/main/pstack) wrote pstack; [Michael Denyer](https://github.com/michael-denyer/pstack-claude) ported it to Claude Code. Additional skills come from Cursor, Jesse Vincent, Matt Pocock, Addy Osmani, Vercel Labs, Supabase, and Meta (Astryx).
 
 Original work is MIT (`LICENSE`). Vendored work keeps its own MIT license; see `NOTICE`.

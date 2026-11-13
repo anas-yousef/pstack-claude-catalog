@@ -92,6 +92,15 @@
         "skills/supabase-postgres-best-practices/": "plugins/pstack-extras/skills/supabase-postgres-best-practices/",
         "LICENSE": "third-party/supabase-agent-skills/LICENSE"
       }
+    },
+    {
+      "name": "astryx",
+      "repo": "https://github.com/meta/astryx",
+      "commit": "65ed0c0171c93e13eb3028743a4e04138d3c8146",
+      "paths": {
+        "plugins/astryx/skills/astryx/": "plugins/pstack-extras/skills/astryx/",
+        "LICENSE": "third-party/astryx/LICENSE"
+      }
     }
   ]
 }
