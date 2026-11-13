@@ -41,8 +41,22 @@ Tag each finding with its checklist item, for example `[N9]`, `[WCAG 1.4.3]`, or
 
 When the second reviewer cannot run, follow poteto-mode's `BLOCKED: independent review` rule. Keep the first report and name the missing reviewer.
 
+## Prototype fidelity
+
+When the project keeps a prototype of its screens, this pass is required. The project says which prototype capture shows which screen and state, for example in `docs/ux-critique/README.md`.
+
+For each prototype screen that shows a screen the build adds or changes, and for each of its captures in every locale and viewport, find the build screenshot of the same screen and state in that locale and viewport. Pair desktop with desktop and phone with phone. If no such build screenshot exists, capture it. If the build has no such screen or state, that is a P1 gap. Give each reviewer the prototype capture beside the build screenshot. Each reviewer compares the layout, the navigation, the components, and the copy, and gives each gap one of these priorities:
+
+- P1. A person would act differently from the prototype's design. Examples are a missing screen or state, a different way to reach the screen, a missing or different primary action, and copy that says something else.
+- P2. The task works the same way, but the layout, a component, or a label differs in a way a person notices.
+- P3. A cosmetic difference, such as spacing, alignment, an icon, or wording with the same meaning.
+
+These priorities rank fidelity gaps only. The other findings keep their own severity. A build screen with no prototype screen has nothing to compare with. The reviewer names it.
+
 ## Report
 
 Write one markdown file for the human, `docs/ux-critique/<feature>.md`, with the screenshots in `docs/ux-critique/<feature>/desktop/` and `docs/ux-critique/<feature>/mobile/`. For each flow, link its desktop and mobile screenshots, then list each finding with its severity, checklist tag or `opinion`, persona, locale, reviewer, and whether the other reviewer agrees or disagrees. End with the top 5 fixes.
+
+When the project keeps a prototype, add a "Prototype fidelity" section. List each gap with its screen, locale, viewport, what the prototype shows, what the build shows, and its priority. Name each build screen that has no prototype screen. The report is not done without this section.
 
 Do not fix anything in this pass.
