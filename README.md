@@ -52,6 +52,7 @@ Codex sheets and the Codex-facing AGENTS block instruct Codex that `spawn_agent`
 | --- | --- | --- |
 | `opus` (default) | Opus for judgment, design, bugs, and reviews; Sonnet for feature work, exploration, and workers. High effort, xhigh for bug-fix, perf-issue, strongest judgment, and the why synthesizer. Panels pair Opus with Sonnet. | Opus at `high` |
 | `opus-max` | Opus on every role, including feature work and workers; every effort one level above `opus`, max where a role hunts an unknown cause or judges hardest. | Opus at `xhigh` |
+| `light` | `opus` for light features (docs, small fixes, copy, config, UI with no new data model): Opus keeps planning and key decisions (judgment and prose, strongest judgment, why synthesizer, the first architect seat and cross-judge seat); Sonnet does implementation, bug-fix, exploration, investigation, and in-run review. No Haiku. High effort, xhigh for bug-fix and perf-issue. Sets `panel vendors: any` so Sonnet-only panels pass. | Opus at `high` |
 | `fable` | `opus` with Fable on judgment and prose, strongest judgment, and the first architect seat. The Agent tool accepts only `fable`; run Claude Code with `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-fable-5-2` to pin Fable 5.2. | Opus at `high` |
 | `fable-max` | `opus-max` with Fable on design, judgment, and implementation; reviews stay on Opus. The Agent tool accepts only `fable`; run Claude Code with `ANTHROPIC_DEFAULT_FABLE_MODEL=claude-fable-5-2` to pin Fable 5.2. | Opus at `xhigh` |
 

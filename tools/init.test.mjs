@@ -474,7 +474,7 @@ test('selected role sheets stay separate and offer a per-chat profile override',
   const claude = readFileSync(path.join(repo, '.claude', 'pstack-models.md'), 'utf8')
   for (const [sheet, profile, profiles] of [
     [codex, pin.codexProfile, ['codex', 'codex-max']],
-    [claude, pin.profile, ['fable', 'fable-max', 'opus', 'opus-max']],
+    [claude, pin.profile, ['fable', 'fable-max', 'light', 'opus', 'opus-max']],
   ]) {
     const source = readFileSync(path.join(ROOT, 'profiles', `${profile}.md`), 'utf8')
     assert.ok(sheet.includes(source), profile)
@@ -533,7 +533,7 @@ test('profile lists follow the catalog index', (t) => {
   const init = pipeInit(repo, home, ['--commit', MAIN], { PSTACK_CATALOG: catalog })
   assert.equal(init.status, 0, init.stderr)
   for (const [runtime, expected] of [
-    ['claude', 'fable, fable-max, future, opus'],
+    ['claude', 'fable, fable-max, future, light, opus'],
     ['codex', 'codex, codex-future, codex-max'],
   ]) {
     const sheet = readFileSync(path.join(repo, `.${runtime}`, 'pstack-models.md'), 'utf8')
@@ -566,6 +566,7 @@ test('every sheet names its own main session', () => {
     'opus-max.md': 'main session: opus @xhigh',
     'fable.md': 'main session: opus @high',
     'fable-max.md': 'main session: opus @xhigh',
+    'light.md': 'main session: opus @high',
     'codex.md': 'main session: gpt-6.1-sol @high',
     'codex-max.md': 'main session: gpt-6-astra @high',
   }
@@ -605,6 +606,21 @@ test('PSTACK_PROFILE switches the Claude main session', (t) => {
   assert.equal(settings(repo).model, 'opus')
   assert.equal(settings(repo).effortLevel, 'xhigh')
   assert.deepEqual(modelLines(repo), ['model = "gpt-6-astra"', 'model_reasoning_effort = "high"'])
+})
+
+test('light selects opus at high and pairs with codex', (t) => {
+  for (const [args, env] of [[['--profile', 'light'], { PSTACK_PROFILE: 'opus-max' }], [[], { PSTACK_PROFILE: 'light' }]]) {
+    const { home, repo } = fresh(t)
+    const selected = pipeInit(repo, home, args, env)
+    assert.equal(selected.status, 0, selected.stderr)
+    const pin = JSON.parse(readFileSync(path.join(repo, '.claude', 'pstack-claude-pin.json'), 'utf8'))
+    assert.equal(pin.profile, 'light')
+    assert.equal(pin.codexProfile, 'codex')
+    assert.equal(settings(repo).model, 'opus')
+    assert.equal(settings(repo).effortLevel, 'high')
+    assert.deepEqual(modelLines(repo), ['model = "gpt-6.1-sol"', 'model_reasoning_effort = "high"'])
+    assert.match(readFileSync(path.join(repo, '.claude', 'pstack-models.md'), 'utf8'), /^Profile: light\./m)
+  }
 })
 
 test('a role row edit does not change the main session', (t) => {
