@@ -132,13 +132,24 @@ test('real Claude and Codex install both plugins on first run in an empty HOME a
   for (const cli of ['git', 'claude']) symlinkSync(run('which', [cli], repo, env).trim(), path.join(bin, cli))
   const claudeOnlyEnv = { ...env, HOME: claudeOnlyHome, CODEX_HOME: path.join(claudeOnlyHome, '.codex'), PATH: bin }
   run('git', ['init', '-q'], claudeOnlyRepo, claudeOnlyEnv)
-  const output = run(process.execPath, [path.join(ROOT, 'tools/init.mjs'), '--commit', next, '--ask-permissions'], claudeOnlyRepo, claudeOnlyEnv)
-  assert.match(output, /Codex CLI not found; skipping Codex setup/)
+  const output = run(process.execPath, [path.join(ROOT, 'tools/init.mjs'), '--commit', next, '--ask-permissions', '--codex-profile', 'none'], claudeOnlyRepo, claudeOnlyEnv)
+  assert.doesNotMatch(output, /Codex/)
   assert.equal(existsSync(path.join(claudeOnlyRepo, '.codex')), false)
   assert.equal(existsSync(path.join(claudeOnlyHome, '.codex')), false)
+  assert.doesNotMatch(readFileSync(path.join(claudeOnlyRepo, 'AGENTS.md'), 'utf8'), /codex/i)
   const claudeOnly = JSON.parse(run('claude', ['plugin', 'list', '--json'], claudeOnlyRepo, claudeOnlyEnv))
   assert.equal(claudeOnly.length, 2)
   assert.ok(claudeOnly.every((plugin) => plugin.enabled && plugin.scope === 'project'))
   assert.equal(existsSync(path.join(claudeOnlyRepo, 'CLAUDE.md')), false)
   assert.equal(readFileSync(path.join(claudeOnlyRepo, 'AGENTS.md'), 'utf8').match(/^@\.claude\/pstack-models\.md$/gm).length, 1)
+
+  // Without the opt-out, a missing Codex CLI still yields the same project files as the Codex-enabled consumer.
+  const missingRepo = path.join(work, 'codex-missing-consumer')
+  mkdirSync(missingRepo)
+  run('git', ['init', '-q'], missingRepo, claudeOnlyEnv)
+  const missing = run(process.execPath, [path.join(ROOT, 'tools/init.mjs'), '--commit', next, '--ask-permissions'], missingRepo, claudeOnlyEnv)
+  assert.match(missing, /Codex CLI not found; skipping Codex plugin installation/)
+  for (const rel of ['AGENTS.md', '.codex/config.toml', '.codex/pstack-models.md']) {
+    assert.equal(readFileSync(path.join(missingRepo, rel), 'utf8'), readFileSync(path.join(repo, rel), 'utf8'), rel)
+  }
 })

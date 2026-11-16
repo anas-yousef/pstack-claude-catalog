@@ -10,9 +10,10 @@ import { pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
 
 const REPO = 'https://github.com/anas-yousef/pstack-claude-catalog'
-const USAGE = 'usage: node tools/init.mjs [--profile <name>] [--codex-profile <name>] [--commit <sha>] [--ask-permissions]'
+const USAGE = 'usage: node tools/init.mjs [--profile <name>] [--codex-profile <name|none>] [--commit <sha>] [--ask-permissions]'
 const LIBS = ['remote.mjs', 'pin.mjs', 'sheet.mjs', 'toml.mjs', 'install.mjs']
 const SLUG = /^[a-z0-9][a-z0-9-]*$/
+const NO_CODEX = 'none'
 const RAW = 'https://raw.githubusercontent.com/anas-yousef/pstack-claude-catalog'
 // Retired profile names. A name the selected commit lacks loads its successor, so old pins and flags keep working.
 const RENAMED = {
@@ -142,13 +143,21 @@ function installedOwnership(root) {
   return manifest.files
 }
 
+function pinnedCodex(readPin, root, pinFile) {
+  if (!existsSync(pinFile)) return ''
+  try {
+    return readPin(root).codexProfile === NO_CODEX ? NO_CODEX : ''
+  } catch {
+    return ''
+  }
+}
+
 async function main() {
   const args = argumentsFrom(process.argv.slice(2))
   const root = repoRoot()
   const loaded = await load(args.commit)
   const { remote, install, readPin, writePin } = loaded
   try {
-    const clients = install.assertHomes()
     const pinFile = path.join(root, '.claude', 'pstack-claude-pin.json')
     const pinned = !args.profile && !args.codexProfile && existsSync(pinFile) ? readPin(root) : null
     let profile = args.profile || pinned?.profile || process.env.PSTACK_PROFILE || 'opus'
@@ -157,12 +166,17 @@ async function main() {
     let claudeSheet = await sheet(remote, sha, profile)
     if (!claudeSheet && RENAMED[profile]) claudeSheet = await sheet(remote, sha, profile = RENAMED[profile])
     if (!claudeSheet) throw new Error(`no profile ${profile} at ${sha}`)
-    const explicit = args.codexProfile || (!args.profile && pinned?.codexProfile) || ''
+    // `none` opts the consumer out of Codex. It survives a --profile change until --codex-profile names a sheet.
+    const explicit = args.codexProfile || (!args.profile && pinned?.codexProfile) || (args.profile && pinnedCodex(readPin, root, pinFile)) || ''
     let codexProfile = explicit || (profile.endsWith('-max') ? 'codex-max' : 'codex')
-    let codexSheet = await sheet(remote, sha, codexProfile)
-    if (!codexSheet && RENAMED[codexProfile]) codexSheet = await sheet(remote, sha, codexProfile = RENAMED[codexProfile])
-    if (!codexSheet && !explicit) codexSheet = await sheet(remote, sha, codexProfile = 'codex')
-    if (!codexSheet) throw new Error(`no profile ${codexProfile} at ${sha}`)
+    let codexSheet = null
+    if (codexProfile !== NO_CODEX) {
+      codexSheet = await sheet(remote, sha, codexProfile)
+      if (!codexSheet && RENAMED[codexProfile]) codexSheet = await sheet(remote, sha, codexProfile = RENAMED[codexProfile])
+      if (!codexSheet && !explicit) codexSheet = await sheet(remote, sha, codexProfile = 'codex')
+      if (!codexSheet) throw new Error(`no profile ${codexProfile} at ${sha}`)
+    }
+    const clients = install.assertHomes({ codex: Boolean(codexSheet) })
     const marketplace = install.marketplaceFrom(await remote.fetchCatalogText(REPO, sha, '.claude-plugin/marketplace.json'))
     const manifest = JSON.parse(await remote.fetchCatalogText(REPO, sha, 'scripts/lib/owned.json'))
     // Older catalogs listed only paths. Exact target bytes still establish ownership.

@@ -47,7 +47,10 @@ function readOrEmpty(file) {
   }
 }
 
+// runtime: 'claude', 'codex', 'both', or 'none' (shared lines only).
 export function putPstack(file, runtime) {
+  const codex = runtime === 'codex' || runtime === 'both'
+  const claude = runtime === 'claude' || runtime === 'both'
   const current = readOrEmpty(file)
   const managed = /<!-- pstack:begin -->[\s\S]*?<!-- pstack:end -->\n?/
   const hasBlock = current.includes(BEGIN) && current.includes(END)
@@ -59,10 +62,10 @@ export function putPstack(file, runtime) {
     : (start < 0 ? current : [...lines.slice(0, start), ...lines.slice(end < 0 ? lines.length : end)].join('\n'))
   const body = [
     'poteto-mode is the only entry point. Inside it, a from-scratch rebuild of an old repo (the current one or one named by path or URL) starts with pstack-extras `greenfield`; any other new product or feature, including one in an existing repo, starts with `pstack-extras:prd` (not any other PRD skill), then spec-driven-development, then the project\'s design leg when its rules require one, then build-auto. Changes to existing behavior, refactors, and bug fixes use poteto-mode\'s own playbooks. After poteto-mode builds or ships a browser UI change, it runs `pstack-extras:ux-critique`.',
-    runtime !== 'claude' ? 'For pstack skills, Codex must read .codex/pstack-models.md; Claude must read .claude/pstack-models.md. Use your runtime\'s sheet for role overrides.' : '',
-    runtime !== 'claude' ? 'For Codex `spawn_agent`, task names must use only lowercase letters, digits, and underscores; replace spaces and hyphens in role names with underscores (for example, `how explorer` becomes `how_explorer`).' : '',
-    runtime !== 'codex' && !/^@\.claude\/pstack-models\.md$/m.test(outside) ? '@.claude/pstack-models.md' : '',
-    runtime !== 'codex' ? 'Model sheet: .claude/pstack-models.md.' : '',
+    codex ? 'For pstack skills, Codex must read .codex/pstack-models.md; Claude must read .claude/pstack-models.md. Use your runtime\'s sheet for role overrides.' : '',
+    codex ? 'For Codex `spawn_agent`, task names must use only lowercase letters, digits, and underscores; replace spaces and hyphens in role names with underscores (for example, `how explorer` becomes `how_explorer`).' : '',
+    claude && !/^@\.claude\/pstack-models\.md$/m.test(outside) ? '@.claude/pstack-models.md' : '',
+    claude ? 'Model sheet: .claude/pstack-models.md.' : '',
     'Run node scripts/pstack-claude-check.mjs as a single command (no chaining); it prints its own status.',
   ].filter(Boolean).join('\n')
   const block = `${BEGIN}\n${body}\n${END}\n`
