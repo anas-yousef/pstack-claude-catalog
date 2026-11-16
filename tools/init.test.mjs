@@ -1307,12 +1307,20 @@ test('Claude command failures still complete Codex setup in CODEX_HOME', (t) => 
   }
 })
 
-test('Claude failure reports that Codex setup was skipped when its CLI is absent', (t) => {
+test('Claude failure reports that Codex plugins were skipped when its CLI is absent', (t) => {
   const { home, repo } = fresh(t)
   rmSync(path.join(home, 'bin/codex'))
   const result = pipeInit(repo, home, [], { PATH: path.join(home, 'bin'), PSTACK_TEST_CLAUDE_FAIL: 'plugin install' })
   assert.notEqual(result.status, 0)
-  assert.match(result.stderr, /^Claude plugin setup failed \(Codex setup skipped: Codex CLI not found\): claude plugin .*fixture install failure/)
+  assert.match(result.stderr, /^Claude plugin setup failed \(Codex setup completed without plugin installation: Codex CLI not found\): claude plugin .*fixture install failure/)
+  assert.deepEqual(readdirSync(path.join(repo, '.codex')).sort(), ['config.toml', 'pstack-models.md'])
+})
+
+test('Claude failure reports that Codex setup was skipped when the consumer opted out', (t) => {
+  const { home, repo } = fresh(t)
+  const result = pipeInit(repo, home, ['--codex-profile', 'none'], { PSTACK_TEST_CLAUDE_FAIL: 'plugin install' })
+  assert.notEqual(result.status, 0)
+  assert.match(result.stderr, /^Claude plugin setup failed \(Codex setup skipped: Codex opted out\): claude plugin .*fixture install failure/)
   assert.equal(existsSync(path.join(repo, '.codex')), false)
 })
 
@@ -1371,16 +1379,92 @@ test('init refuses foreign managed destinations and symlinks without replacing t
 })
 
 
-test('init skips all Codex setup when the CLI is absent and still installs Claude', (t) => {
+function repoFiles(repo) {
+  const into = new Map()
+  walkFiles(repo, into)
+  return new Map([...into].map(([file, bytes]) => [path.relative(repo, file), bytes]))
+}
+
+function assertSameRepoFiles(left, right) {
+  assert.deepEqual([...right.keys()].sort(), [...left.keys()].sort())
+  for (const rel of left.keys()) assert.equal(right.get(rel).equals(left.get(rel)), true, rel)
+}
+
+// One consumer per CLI state; returns each consumer's project files after init (and after a rerun from its pin).
+function initWithAndWithoutCodex(t, args = [], prepare = () => {}) {
+  const out = {}
+  for (const state of ['present', 'absent']) {
+    const { home, repo } = fresh(t)
+    prepare(repo)
+    const extra = state === 'absent' ? { PATH: path.join(home, 'bin') } : {}
+    if (state === 'absent') rmSync(path.join(home, 'bin/codex'))
+    const first = pipeInit(repo, home, args, extra)
+    assert.equal(first.status, 0, first.stderr)
+    const files = repoFiles(repo)
+    const again = pipeInit(repo, home, [], extra)
+    assert.equal(again.status, 0, again.stderr)
+    assertSameRepoFiles(files, repoFiles(repo))
+    out[state] = { home, repo, files, stdout: first.stdout }
+  }
+  return out
+}
+
+test('init writes the same project files whether or not the Codex CLI is installed', (t) => {
+  const { present, absent } = initWithAndWithoutCodex(t, [], (repo) => writeFileSync(path.join(repo, 'AGENTS.md'), '# Project\n'))
+  assertSameRepoFiles(present.files, absent.files)
+  assert.ok(readFileSync(path.join(absent.repo, 'AGENTS.md'), 'utf8').endsWith(COMBINED_MARKER))
+  assert.deepEqual(readdirSync(path.join(absent.repo, '.codex')).sort(), ['config.toml', 'pstack-models.md'])
+  assert.match(absent.stdout, /Codex CLI not found; skipping Codex plugin installation/)
+  assert.equal(existsSync(path.join(absent.home, 'codex-calls.jsonl')), false)
+  assert.equal(existsSync(path.join(absent.repo, '.claude/pstack-models.md')), true)
+  assert.match(readFileSync(path.join(absent.home, 'claude-calls.jsonl'), 'utf8'), /"install"/)
+})
+
+test('codex profile none writes no Codex files, lines, or config, with or without the CLI', (t) => {
+  const { present, absent } = initWithAndWithoutCodex(t, ['--codex-profile', 'none'], (repo) => writeFileSync(path.join(repo, 'AGENTS.md'), '# Project\n'))
+  assertSameRepoFiles(present.files, absent.files)
+  for (const { home, repo, stdout } of [present, absent]) {
+    assert.equal(existsSync(path.join(repo, '.codex')), false)
+    assert.equal(existsSync(path.join(home, '.codex')), false)
+    assert.equal(existsSync(path.join(home, 'codex-calls.jsonl')), false)
+    assert.doesNotMatch(stdout, /Codex/)
+    const agents = readFileSync(path.join(repo, 'AGENTS.md'), 'utf8')
+    assert.equal(agents, `# Project\n\n${CLAUDE_MARKER}`)
+    assert.doesNotMatch(agents, /codex/i)
+    assert.equal(JSON.parse(readFileSync(path.join(repo, '.claude/pstack-claude-pin.json'), 'utf8')).codexProfile, 'none')
+    assert.doesNotMatch(readFileSync(path.join(repo, '.claude/pstack-models.md'), 'utf8'), /Profiles:.*codex/)
+  }
+})
+
+test('codex profile none drops the Codex lines from an existing block and survives a profile change', (t) => {
   const { home, repo } = fresh(t)
-  rmSync(path.join(home, 'bin/codex'))
-  const result = pipeInit(repo, home, [], { PATH: path.join(home, 'bin') })
+  writeFileSync(path.join(repo, 'AGENTS.md'), '# Project\n')
+  assert.equal(pipeInit(repo, home).status, 0)
+  assert.ok(readFileSync(path.join(repo, 'AGENTS.md'), 'utf8').endsWith(COMBINED_MARKER))
+  const opted = pipeInit(repo, home, ['--codex-profile', 'none'])
+  assert.equal(opted.status, 0, opted.stderr)
+  assert.equal(readFileSync(path.join(repo, 'AGENTS.md'), 'utf8'), `# Project\n\n${CLAUDE_MARKER}`)
+  const pinFile = path.join(repo, '.claude/pstack-claude-pin.json')
+  const switched = pipeInit(repo, home, ['--profile', 'light'])
+  assert.equal(switched.status, 0, switched.stderr)
+  assert.deepEqual([readPin(repo).profile, readPin(repo).codexProfile], ['light', 'none'])
+  assert.equal(readFileSync(path.join(repo, 'AGENTS.md'), 'utf8'), `# Project\n\n${CLAUDE_MARKER}`)
+  const back = pipeInit(repo, home, ['--profile', 'light', '--codex-profile', 'codex'])
+  assert.equal(back.status, 0, back.stderr)
+  assert.equal(JSON.parse(readFileSync(pinFile, 'utf8')).codexProfile, 'codex')
+  assert.ok(readFileSync(path.join(repo, 'AGENTS.md'), 'utf8').endsWith(COMBINED_MARKER))
+})
+
+test('codex profile none keeps a separate CLAUDE.md and leaves AGENTS.md with only shared lines', (t) => {
+  const { home, repo } = fresh(t)
+  writeFileSync(path.join(repo, 'AGENTS.md'), '# Agents\n')
+  writeFileSync(path.join(repo, 'CLAUDE.md'), '# Claude\n')
+  const result = pipeInit(repo, home, ['--codex-profile', 'none'])
   assert.equal(result.status, 0, result.stderr)
-  assert.match(result.stdout, /Codex CLI not found; skipping Codex setup/)
+  assert.equal(readFileSync(path.join(repo, 'CLAUDE.md'), 'utf8'), `# Claude\n\n${CLAUDE_MARKER}`)
+  const agents = readFileSync(path.join(repo, 'AGENTS.md'), 'utf8')
+  assert.equal(agents, `# Agents\n\n<!-- pstack:begin -->\n${ROUTING}\nRun node scripts/pstack-claude-check.mjs as a single command (no chaining); it prints its own status.\n<!-- pstack:end -->\n`)
   assert.equal(existsSync(path.join(repo, '.codex')), false)
-  assert.equal(existsSync(path.join(home, '.codex')), false)
-  assert.equal(existsSync(path.join(repo, '.claude/pstack-models.md')), true)
-  assert.match(readFileSync(path.join(home, 'claude-calls.jsonl'), 'utf8'), /"install"/)
 })
 
 test('Claude bypass uses user settings, preserves unrelated settings, and opts out on rerun', (t) => {

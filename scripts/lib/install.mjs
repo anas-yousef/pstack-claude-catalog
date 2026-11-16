@@ -119,16 +119,17 @@ function readClaude(file) {
   return { raw, parsed }
 }
 
-export function assertHomes() {
+// With codex false (the consumer opted out of Codex), the Codex CLI is never probed.
+export function assertHomes({ codex = true } = {}) {
   readClaude(claudeFile())
   readClaude(claudeSettings())
-  return { claude: available('claude'), codex: available('codex') }
+  return { claude: available('claude'), codex: codex && available('codex') }
 }
 
 function available(cli) {
   const result = spawnSync(cli, ['--version'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
   if (result.error?.code === 'ENOENT') {
-    process.stdout.write(`${cli === 'codex' ? 'Codex' : 'Claude'} CLI not found; skipping ${cli === 'codex' ? 'Codex setup' : 'Claude plugin installation'}; install ${cli} and rerun init\n`)
+    process.stdout.write(`${cli === 'codex' ? 'Codex' : 'Claude'} CLI not found; skipping ${cli === 'codex' ? 'Codex plugin installation' : 'Claude plugin installation'}; install ${cli} and rerun init\n`)
     return false
   }
   if (result.error || result.status !== 0) throw new Error(`${cli} --version failed: ${result.error?.message || result.stderr?.trim() || result.status}`)
@@ -224,7 +225,10 @@ function addClaudeMarketplace(root, pin, marketplace) {
   process.stdout.write(`note: ${userFile} declares marketplace ${marketplace} from ${source.source} ${arg}; init uses it and leaves it unchanged. Remove that entry to use the project's github source.\n`)
 }
 
-export async function install(root, pin, claudeSheet, codexSheet, marketplace, askPermissions = false, clients = assertHomes()) {
+// A null codexSheet means the consumer opted out of Codex: no .codex files, no Codex lines, no Codex config.
+// Otherwise the project files are written whether or not the Codex CLI is installed; only its plugin commands need the CLI.
+export async function install(root, pin, claudeSheet, codexSheet, marketplace, askPermissions = false, clients = assertHomes({ codex: Boolean(codexSheet) })) {
+  const codex = Boolean(codexSheet)
   const profiles = JSON.parse(await fetchCatalogText(pin.repo, pin.commit, 'profiles/index.json'))
   const claudeDir = path.join(root, '.claude')
   const codexDir = path.join(root, '.codex')
@@ -236,7 +240,7 @@ export async function install(root, pin, claudeSheet, codexSheet, marketplace, a
   const agentsMd = path.join(root, 'AGENTS.md')
   const separateClaude = existsSync(claudeMd) && (!existsSync(agentsMd) || realpathSync(claudeMd) !== realpathSync(agentsMd))
   if (separateClaude) putPstack(claudeMd, 'claude')
-  putPstack(agentsMd, separateClaude ? 'codex' : clients.codex ? 'both' : 'claude')
+  putPstack(agentsMd, separateClaude ? (codex ? 'codex' : 'none') : (codex ? 'both' : 'claude'))
   const abs = path.resolve(root)
   trustClaude(abs)
   let claudeError
@@ -248,7 +252,7 @@ export async function install(root, pin, claudeSheet, codexSheet, marketplace, a
       claudeError = error
     }
   }
-  if (clients.codex) {
+  if (codex) {
     try {
       mkdirSync(codexDir, { recursive: true })
       writeFileSync(path.join(codexDir, 'pstack-models.md'), withProfiles(codexSheet, pin, profiles.filter((name) => name === 'codex' || name.startsWith('codex-'))))
@@ -268,14 +272,19 @@ export async function install(root, pin, claudeSheet, codexSheet, marketplace, a
       writeConfig(path.join(home, 'config.toml'), {
         tables: { [`projects."${quoted}"`]: { trust_level: 'trusted' } },
       })
-      command('codex', root, ['plugin', 'marketplace', 'upgrade', marketplace, '--json'])
-      for (const plugin of pin.plugins) command('codex', root, ['plugin', 'add', `${plugin}@${marketplace}`, '--json'])
+      if (clients.codex) {
+        command('codex', root, ['plugin', 'marketplace', 'upgrade', marketplace, '--json'])
+        for (const plugin of pin.plugins) command('codex', root, ['plugin', 'add', `${plugin}@${marketplace}`, '--json'])
+      }
     } catch (error) {
       if (claudeError) throw new Error(`Claude plugin setup failed: ${claudeError.message}; Codex setup failed: ${error.message}`)
       throw error
     }
   }
-  if (claudeError) throw new Error(`Claude plugin setup failed (Codex setup ${clients.codex ? 'completed' : 'skipped: Codex CLI not found'}): ${claudeError.message}`)
+  if (claudeError) {
+    const codexState = !codex ? 'skipped: Codex opted out' : clients.codex ? 'completed' : 'completed without plugin installation: Codex CLI not found'
+    throw new Error(`Claude plugin setup failed (Codex setup ${codexState}): ${claudeError.message}`)
+  }
 }
 
 function command(cli, root, args) {
