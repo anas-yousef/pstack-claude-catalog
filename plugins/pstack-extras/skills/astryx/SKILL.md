@@ -3,6 +3,8 @@ name: astryx
 description: "Astryx, a design system and UI library, is available on this computer through the astryx command; use it when building or changing UI, choosing components, layout, styling or theming, working with a design system, or in any project that depends on @astryxdesign packages or mentions Astryx."
 ---
 
+Scope: use Astryx for visuals only (components, layout, spacing, color, typography, motion). Behaviour (navigation, loading, pending feedback, focus, keyboard, forms) follows the project's bundled Next.js docs (node_modules/next/dist/docs), vercel-react-best-practices and web-design-guidelines; where they conflict with Astryx, they win.
+
 <!-- ASTRYX:START -->
 <!-- astryx-managed sha256:7b8a3492512cdfd3a9119b0524ff944a969695e66bba6531ddf7fca464ec3cb3 -->
 Astryx, a design system and UI library, is available on this computer.
