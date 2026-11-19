@@ -144,6 +144,12 @@ astryx
   License: MIT, Copyright (c) 2026 Meta Platforms, Inc. See
            third-party/astryx/LICENSE.
   Files:   plugins/pstack-extras/skills/astryx
-  Changes: none.
+  Changes: SKILL.md has one added scope sentence between the frontmatter and
+           the ASTRYX:START marker, so Astryx is used for visuals only and
+           behaviour follows the Next.js docs, vercel-react-best-practices and
+           web-design-guidelines. The managed block and its sha256 line are
+           unchanged. Astryx hashes the whole file, so the file now counts as
+           edited and `astryx init --user` leaves it alone. Reapply the
+           sentence after a sync.
   Not vendored: the upstream plugin manifests and marketplace files. The
            skill ships inside pstack-extras instead of a separate plugin.
