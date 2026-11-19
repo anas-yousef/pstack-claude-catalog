@@ -41,6 +41,14 @@ Tag each finding with its checklist item, for example `[N9]`, `[WCAG 1.4.3]`, or
 
 When the second reviewer cannot run, follow poteto-mode's `BLOCKED: independent review` rule. Keep the first report and name the missing reviewer.
 
+## Behaviour checks
+
+Screenshots do not show how a screen behaves. Exercise these in the running app: a persistent shared layout, loading scoped to the part that is loading, pending or click feedback, and focus and keyboard. Cite the source for each finding and tell the reviewers where these live:
+
+- `../web-design-guidelines/REFERENCE.md`, the pinned rules. Tag `[WDG]`.
+- `../vercel-react-best-practices/SKILL.md`, for React and Next.js code. Tag `[VRBP]`.
+- When the project uses Next.js, the docs in `node_modules/next/dist/docs/`. Read the installed version. Tag `[Next docs]`.
+
 ## Prototype fidelity
 
 When the project keeps a prototype of its screens, this pass is required. The project says which prototype capture shows which screen and state, for example in `docs/ux-critique/README.md`.
