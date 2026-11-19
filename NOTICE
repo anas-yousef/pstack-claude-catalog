@@ -104,15 +104,30 @@ agent-skills
            ../../references/orchestration-patterns.md.
 
 vercel-labs/agent-skills
-  Source:  https://github.com/vercel-labs/agent-skills (skills/react-best-practices/)
+  Source:  https://github.com/vercel-labs/agent-skills (skills/react-best-practices/, skills/web-design-guidelines/)
   Commit:  1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62
   License: MIT. The skill frontmatter and the repository README say MIT.
            This commit publishes no LICENSE file, so third-party/ has no copy.
   Files:   plugins/pstack-extras/skills/vercel-react-best-practices
-           (upstream skills/react-best-practices/, every file in that directory)
+           (upstream skills/react-best-practices/, every file in that directory),
+           plugins/pstack-extras/skills/web-design-guidelines/SKILL.md
   Changes: AGENTS.md is renamed REFERENCE.md without changing its bytes.
            SKILL.md and README.md link to the renamed compiled guide so it
            remains available on demand instead of acting as nested instructions.
+           web-design-guidelines/SKILL.md reads the pinned REFERENCE.md next to
+           it instead of fetching command.md from the upstream main branch at
+           run time. That REFERENCE.md is the next entry. Reapply the SKILL.md
+           edit after a sync.
+
+vercel-labs/web-interface-guidelines
+  Source:  https://github.com/vercel-labs/web-interface-guidelines (command.md, LICENSE)
+  Commit:  434b7f91364665f2f733b310ec54809bf8f37937
+  License: MIT, Copyright (c) 2025 Vercel Labs. See
+           third-party/web-interface-guidelines/LICENSE.
+  Files:   plugins/pstack-extras/skills/web-design-guidelines/REFERENCE.md
+           (upstream command.md, byte for byte)
+  Changes: none. command.md is renamed REFERENCE.md so the skill reads a
+           reproducible snapshot instead of the moving main branch.
 
 supabase/agent-skills
   Source:  https://github.com/supabase/agent-skills (skills/)

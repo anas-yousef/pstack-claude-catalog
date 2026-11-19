@@ -82,7 +82,7 @@ To refresh upstream content:
 2. Run `node tools/sync.mjs`. Use `--from <name>=<checkout>` to read a local checkout at the pin.
 3. Reapply the agent-skills substitutions listed in `NOTICE`, review the diff, update `NOTICE`, and commit.
 
-The sync tool preserves original extras and setup files. `plugins/pstack/` must remain identical to its upstream pin. In the Vercel extras skill, `sources.json` maps upstream `AGENTS.md` to `REFERENCE.md`; update its SKILL link after syncing, so the compiled guide stays an on-demand reference ([Cursor nested instruction rules](https://cursor.com/docs/rules#nested-agentsmd-support)).
+The sync tool preserves original extras and setup files. `plugins/pstack/` must remain identical to its upstream pin. In the Vercel extras skill, `sources.json` maps upstream `AGENTS.md` to `REFERENCE.md`; update its SKILL link after syncing, so the compiled guide stays an on-demand reference ([Cursor nested instruction rules](https://cursor.com/docs/rules#nested-agentsmd-support)). `web-design-guidelines/SKILL.md` is patched the same way: upstream fetches `command.md` from the web-interface-guidelines main branch at run time, so `sources.json` pins that file at `434b7f9` as `REFERENCE.md` and the skill reads it. After a sync, point the skill at `REFERENCE.md` again.
 
 ## Thanks and license
 

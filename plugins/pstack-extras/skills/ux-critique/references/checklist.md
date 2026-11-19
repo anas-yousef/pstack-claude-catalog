@@ -53,4 +53,5 @@ Items are screening prompts that summarize each success criterion; the criterion
 - WCAG: Web Content Accessibility Guidelines 2.2. https://www.w3.org/TR/WCAG22/
 - HIG RTL: Apple Human Interface Guidelines, Right to left. https://developer.apple.com/design/human-interface-guidelines/right-to-left
 - CWV: Core Web Vitals. https://web.dev/articles/vitals
+- WDG: Vercel Web Interface Guidelines, pinned in `../../web-design-guidelines/REFERENCE.md`. VRBP: `../../vercel-react-best-practices/SKILL.md`. Next docs: `node_modules/next/dist/docs/` in a Next.js project. Cite these for behaviour findings.
 - Practice: common practice with no external source. Weigh it below a sourced item.

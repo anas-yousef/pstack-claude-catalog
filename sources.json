@@ -80,7 +80,17 @@
         "skills/react-best-practices/README.md": "plugins/pstack-extras/skills/vercel-react-best-practices/README.md",
         "skills/react-best-practices/SKILL.md": "plugins/pstack-extras/skills/vercel-react-best-practices/SKILL.md",
         "skills/react-best-practices/metadata.json": "plugins/pstack-extras/skills/vercel-react-best-practices/metadata.json",
-        "skills/react-best-practices/rules/": "plugins/pstack-extras/skills/vercel-react-best-practices/rules/"
+        "skills/react-best-practices/rules/": "plugins/pstack-extras/skills/vercel-react-best-practices/rules/",
+        "skills/web-design-guidelines/SKILL.md": "plugins/pstack-extras/skills/web-design-guidelines/SKILL.md"
+      }
+    },
+    {
+      "name": "vercel-web-interface-guidelines",
+      "repo": "https://github.com/vercel-labs/web-interface-guidelines",
+      "commit": "434b7f91364665f2f733b310ec54809bf8f37937",
+      "paths": {
+        "command.md": "plugins/pstack-extras/skills/web-design-guidelines/REFERENCE.md",
+        "LICENSE": "third-party/web-interface-guidelines/LICENSE"
       }
     },
     {
