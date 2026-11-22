@@ -153,3 +153,11 @@ astryx
            sentence after a sync.
   Not vendored: the upstream plugin manifests and marketplace files. The
            skill ships inside pstack-extras instead of a separate plugin.
+
+shadcn-ui/ui
+  Source:  https://github.com/shadcn-ui/ui (skills/shadcn/, LICENSE.md)
+  Commit:  bfa64ff4d1cb7317d2403ecb176df6826d4caffc
+  License: MIT, Copyright (c) 2023 shadcn. See third-party/shadcn-ui/LICENSE.md.
+  Files:   plugins/pstack-extras/skills/shadcn
+  Changes: none. The official shadcn/ui skill (ui.shadcn.com/docs/skills),
+           byte for byte.

@@ -111,6 +111,15 @@
         "plugins/astryx/skills/astryx/": "plugins/pstack-extras/skills/astryx/",
         "LICENSE": "third-party/astryx/LICENSE"
       }
+    },
+    {
+      "name": "shadcn-ui",
+      "repo": "https://github.com/shadcn-ui/ui",
+      "commit": "bfa64ff4d1cb7317d2403ecb176df6826d4caffc",
+      "paths": {
+        "skills/shadcn/": "plugins/pstack-extras/skills/shadcn/",
+        "LICENSE.md": "third-party/shadcn-ui/LICENSE.md"
+      }
     }
   ]
 }
