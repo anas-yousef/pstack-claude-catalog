@@ -48,6 +48,7 @@
         "skills/engineering/domain-modeling/": "plugins/pstack-extras/skills/domain-modeling/",
         "skills/productivity/writing-for-agents/": "plugins/pstack-extras/skills/writing-for-agents/",
         "skills/engineering/wizard/": "plugins/pstack-extras/skills/wizard/",
+        "skills/productivity/grill-me/": "plugins/pstack-extras/skills/grill-me/",
         "skills/productivity/grilling/": "plugins/pstack-extras/skills/grilling/",
         "LICENSE": "third-party/mattpocock-skills/LICENSE"
       }
