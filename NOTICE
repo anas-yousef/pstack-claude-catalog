@@ -12,6 +12,7 @@ plugins/pstack-extras/skills/legacy-critique/,
 plugins/pstack-extras/skills/local-supabase/,
 plugins/pstack-extras/skills/merge-reviews/,
 plugins/pstack-extras/skills/prd/,
+plugins/pstack-extras/skills/principle-follow-official-docs/,
 plugins/pstack-extras/skills/ux-critique/, profiles/, scripts/, tools/init.mjs,
 tools/init.test.mjs, tools/codex-init.test.mjs, tools/headless.mjs,
 tools/sync.mjs, and tools/sync.test.mjs.
@@ -41,6 +42,10 @@ cursor-team-kit
            control-ui, loop-on-ci, new-branch-and-pr, review-and-ship,
            run-smoke-tests, verify-this
   Changes: none.
+  Rules:   two lines of the init managed block (scripts/lib/sheet.mjs) carry the
+           text of cursor-team-kit/rules/no-inline-imports.mdc and
+           typescript-exhaustive-switch.mdc at the same commit, without their
+           frontmatter and headings.
   Not vendored: deslop, fix-ci, fix-merge-conflicts, get-pr-comments,
            make-pr-easy-to-review, what-did-i-get-done, and
            thermo-nuclear-code-quality-review, which pstack-claude already
@@ -62,7 +67,7 @@ mattpocock/skills
   Commit:  a496f5513d4a4cf889bc48e189e579f4b0bdf6aa
   License: MIT, Copyright (c) 2026 Matt Pocock. See third-party/mattpocock-skills/LICENSE.
   Files:   plugins/pstack-extras/skills/domain-modeling, writing-for-agents, wizard,
-           grilling
+           grill-me, grilling
   Changes: none.
 
 agent-skills
