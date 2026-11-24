@@ -1472,7 +1472,7 @@ test('codex profile none keeps a separate CLAUDE.md and leaves AGENTS.md with on
   assert.equal(existsSync(path.join(repo, '.codex')), false)
 })
 
-const NO_PROFILE_LINE = "No default model profile: if .claude/pstack-models.md is missing, pick the fitting non-codex profile from https://raw.githubusercontent.com/anas-yousef/pstack-claude-catalog/<commit>/profiles/index.json (<commit> from .claude/pstack-claude-pin.json), fetch that profile's <name>.md from the same folder, save it as .claude/pstack-models.md, say which profile you chose, then start; never run pstack roles on built-in defaults."
+const NO_PROFILE_LINE = "No default model profile: if .claude/pstack-models.md is missing, pick the fitting Claude profile from https://raw.githubusercontent.com/anas-yousef/pstack-claude-catalog/<commit>/profiles/index.json (<commit> from .claude/pstack-claude-pin.json), fetch that profile's <name>.md from the same folder, save it as .claude/pstack-models.md, say which profile you chose, then start; never run pstack roles on built-in defaults."
 const NO_PROFILE_MARKER = CLAUDE_MARKER.replace('Run node', `${NO_PROFILE_LINE}\nRun node`)
 
 test('profile none writes no Claude sheet, keeps settings models, adds the pick-a-profile line, and survives reruns', (t) => {
@@ -1487,6 +1487,7 @@ test('profile none writes no Claude sheet, keeps settings models, adds the pick-
     assert.equal(existsSync(sheetFile), false)
     assert.deepEqual([readPin(repo).profile, readPin(repo).codexProfile], ['none', 'none'])
     assert.equal(readFileSync(path.join(repo, 'AGENTS.md'), 'utf8'), `# Project\n\n${NO_PROFILE_MARKER}`)
+    assert.doesNotMatch(readFileSync(path.join(repo, 'AGENTS.md'), 'utf8'), /codex/i)
     assert.equal(settings(repo).model, 'sonnet')
     assert.equal(settings(repo).effortLevel, 'low')
     assert.equal(settings(repo).enabledPlugins['pstack@pstack-claude-catalog'], true)
