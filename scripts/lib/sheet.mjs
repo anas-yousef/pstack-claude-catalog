@@ -71,7 +71,7 @@ export function putPstack(file, runtime, options = {}) {
     codex ? 'For Codex `spawn_agent`, task names must use only lowercase letters, digits, and underscores; replace spaces and hyphens in role names with underscores (for example, `how explorer` becomes `how_explorer`).' : '',
     claude && !/^@\.claude\/pstack-models\.md$/m.test(outside) ? '@.claude/pstack-models.md' : '',
     claude ? 'Model sheet: .claude/pstack-models.md.' : '',
-    claude && options.profiles ? `No default model profile: if .claude/pstack-models.md is missing, pick the fitting non-codex profile from ${options.profiles}/index.json (<commit> from .claude/pstack-claude-pin.json), fetch that profile's <name>.md from the same folder, save it as .claude/pstack-models.md, say which profile you chose, then start; never run pstack roles on built-in defaults.` : '',
+    claude && options.profiles ? `No default model profile: if .claude/pstack-models.md is missing, pick the fitting Claude profile from ${options.profiles}/index.json (<commit> from .claude/pstack-claude-pin.json), fetch that profile's <name>.md from the same folder, save it as .claude/pstack-models.md, say which profile you chose, then start; never run pstack roles on built-in defaults.` : '',
     'Run node scripts/pstack-claude-check.mjs as a single command (no chaining); it prints its own status.',
   ].filter(Boolean).join('\n')
   const block = `${BEGIN}\n${body}\n${END}\n`
