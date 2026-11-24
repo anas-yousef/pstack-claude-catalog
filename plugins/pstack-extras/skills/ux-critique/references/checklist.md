@@ -30,12 +30,16 @@ Items are screening prompts that summarize each success criterion; the criterion
 - [HIG RTL] Do navigation and progress controls flip, so that back points right in RTL? Do controls for a real direction, such as rewind, stay unflipped?
 - [HIG RTL] Do adjacent Latin and RTL scripts look balanced in size and weight? Does each locale use its expected numerals?
 - [HIG RTL] Does mixed-direction text, such as names, numbers, and punctuation, render in the right order?
+- [Practice] When text that mixes RTL and LTR scripts is cut, is it cut at its logical end, with the ellipsis on the trailing side for the text's own direction, not on the wrong side?
 - [Practice] Does longer translated text fit without truncation or clipping? [N2] Does the copy read as written in that language, not translated?
 
 ## 4. Visual hierarchy and consistency
 
 - [N8] Is the primary action on each screen the most obvious one? [Practice] Do spacing and alignment follow one rhythm?
 - [N4 / WCAG 3.2.4] Is a component with the same function identified the same way, by label, icon, or name, on every screen? [Practice] Does it also look the same?
+- [Practice] Does each control keep its icon and label on one line with room to spare, at phone width and in the longest locale, not stacked, wrapped, or cramped?
+- [N8 / Practice] Is density right: rows, cards, and toolbars no taller than their content needs, with actions inline where they fit?
+- [WCAG 1.4.3 / 1.4.11] Do text, borders, focus rings, and states keep their contrast in both light and dark?
 - [N1 / N9] Are the empty, loading, and error states designed, not blank or raw?
 - Build guidance: `../../frontend-ui-engineering/SKILL.md`.
 
