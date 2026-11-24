@@ -60,9 +60,12 @@ function readSettings(file) {
 
 function writeSettings(file, session, pin, marketplace, askPermissions) {
   const { raw, current } = readSettings(file)
-  current.model = session.model
-  if (EFFORT.has(session.effort)) current.effortLevel = session.effort
-  else delete current.effortLevel
+  // With no Claude sheet (profile none) there is no main session row, so model and effortLevel stay as they are.
+  if (session) {
+    current.model = session.model
+    if (EFFORT.has(session.effort)) current.effortLevel = session.effort
+    else delete current.effortLevel
+  }
   const permissions = asObject(current.permissions)
   const allow = Array.isArray(permissions.allow) ? permissions.allow.filter((rule) => typeof rule === 'string') : []
   if (!allow.includes(ALLOW)) allow.push(ALLOW)
@@ -225,6 +228,7 @@ function addClaudeMarketplace(root, pin, marketplace) {
   process.stdout.write(`note: ${userFile} declares marketplace ${marketplace} from ${source.source} ${arg}; init uses it and leaves it unchanged. Remove that entry to use the project's github source.\n`)
 }
 
+// A null claudeSheet means profile none: no .claude/pstack-models.md and no main session write; the managed block says how to pick one.
 // A null codexSheet means the consumer opted out of Codex: no .codex files, no Codex lines, no Codex config.
 // Otherwise the project files are written whether or not the Codex CLI is installed; only its plugin commands need the CLI.
 export async function install(root, pin, claudeSheet, codexSheet, marketplace, askPermissions = false, clients = assertHomes({ codex: Boolean(codexSheet) })) {
@@ -233,14 +237,15 @@ export async function install(root, pin, claudeSheet, codexSheet, marketplace, a
   const claudeDir = path.join(root, '.claude')
   const codexDir = path.join(root, '.codex')
   mkdirSync(claudeDir, { recursive: true })
-  writeFileSync(path.join(claudeDir, 'pstack-models.md'), withProfiles(claudeSheet, pin, profiles.filter((name) => name !== 'codex' && !name.startsWith('codex-'))))
-  writeSettings(path.join(claudeDir, 'settings.json'), sessionSettings(claudeSheet), pin, marketplace, askPermissions)
+  if (claudeSheet) writeFileSync(path.join(claudeDir, 'pstack-models.md'), withProfiles(claudeSheet, pin, profiles.filter((name) => name !== 'codex' && !name.startsWith('codex-'))))
+  writeSettings(path.join(claudeDir, 'settings.json'), claudeSheet ? sessionSettings(claudeSheet) : null, pin, marketplace, askPermissions)
   userPermissions(askPermissions)
   const claudeMd = path.join(root, 'CLAUDE.md')
   const agentsMd = path.join(root, 'AGENTS.md')
   const separateClaude = existsSync(claudeMd) && (!existsSync(agentsMd) || realpathSync(claudeMd) !== realpathSync(agentsMd))
-  if (separateClaude) putPstack(claudeMd, 'claude')
-  putPstack(agentsMd, separateClaude ? (codex ? 'codex' : 'none') : (codex ? 'both' : 'claude'))
+  const options = claudeSheet ? {} : { profiles: `https://raw.githubusercontent.com/${githubSlug(pin.repo)}/<commit>/profiles` }
+  if (separateClaude) putPstack(claudeMd, 'claude', options)
+  putPstack(agentsMd, separateClaude ? (codex ? 'codex' : 'none') : (codex ? 'both' : 'claude'), options)
   const abs = path.resolve(root)
   trustClaude(abs)
   let claudeError

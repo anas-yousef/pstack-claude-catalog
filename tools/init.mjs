@@ -10,10 +10,12 @@ import { pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
 
 const REPO = 'https://github.com/anas-yousef/pstack-claude-catalog'
-const USAGE = 'usage: node tools/init.mjs [--profile <name>] [--codex-profile <name|none>] [--commit <sha>] [--ask-permissions]'
+const USAGE = 'usage: node tools/init.mjs [--profile <name|none>] [--codex-profile <name|none>] [--commit <sha>] [--ask-permissions]'
 const LIBS = ['remote.mjs', 'pin.mjs', 'sheet.mjs', 'toml.mjs', 'install.mjs']
 const SLUG = /^[a-z0-9][a-z0-9-]*$/
 const NO_CODEX = 'none'
+// `none` as the Claude profile writes no .claude/pstack-models.md; the managed block tells the agent to pick one.
+const NO_PROFILE = 'none'
 const RAW = 'https://raw.githubusercontent.com/anas-yousef/pstack-claude-catalog'
 // Retired profile names. A name the selected commit lacks loads its successor, so old pins and flags keep working.
 const RENAMED = {
@@ -143,10 +145,10 @@ function installedOwnership(root) {
   return manifest.files
 }
 
-function pinnedCodex(readPin, root, pinFile) {
+function pinnedNone(readPin, root, pinFile, field) {
   if (!existsSync(pinFile)) return ''
   try {
-    return readPin(root).codexProfile === NO_CODEX ? NO_CODEX : ''
+    return readPin(root)[field] === 'none' ? 'none' : ''
   } catch {
     return ''
   }
@@ -160,14 +162,18 @@ async function main() {
   try {
     const pinFile = path.join(root, '.claude', 'pstack-claude-pin.json')
     const pinned = !args.profile && !args.codexProfile && existsSync(pinFile) ? readPin(root) : null
-    let profile = args.profile || pinned?.profile || process.env.PSTACK_PROFILE || 'opus'
+    // A pinned `none` also survives a --codex-profile change until --profile names a sheet.
+    let profile = args.profile || pinned?.profile || (args.codexProfile && pinnedNone(readPin, root, pinFile, 'profile')) || process.env.PSTACK_PROFILE || 'opus'
     if (!SLUG.test(profile)) fail('profile names must be plain slugs')
     const { sha } = loaded
-    let claudeSheet = await sheet(remote, sha, profile)
-    if (!claudeSheet && RENAMED[profile]) claudeSheet = await sheet(remote, sha, profile = RENAMED[profile])
-    if (!claudeSheet) throw new Error(`no profile ${profile} at ${sha}`)
+    let claudeSheet = null
+    if (profile !== NO_PROFILE) {
+      claudeSheet = await sheet(remote, sha, profile)
+      if (!claudeSheet && RENAMED[profile]) claudeSheet = await sheet(remote, sha, profile = RENAMED[profile])
+      if (!claudeSheet) throw new Error(`no profile ${profile} at ${sha}`)
+    }
     // `none` opts the consumer out of Codex. It survives a --profile change until --codex-profile names a sheet.
-    const explicit = args.codexProfile || (!args.profile && pinned?.codexProfile) || (args.profile && pinnedCodex(readPin, root, pinFile)) || ''
+    const explicit = args.codexProfile || (!args.profile && pinned?.codexProfile) || (args.profile && pinnedNone(readPin, root, pinFile, 'codexProfile')) || ''
     let codexProfile = explicit || (profile.endsWith('-max') ? 'codex-max' : 'codex')
     let codexSheet = null
     if (codexProfile !== NO_CODEX) {
