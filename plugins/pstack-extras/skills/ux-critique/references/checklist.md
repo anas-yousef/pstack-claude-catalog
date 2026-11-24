@@ -31,6 +31,9 @@ Items are screening prompts that summarize each success criterion; the criterion
 - [HIG RTL] Do adjacent Latin and RTL scripts look balanced in size and weight? Does each locale use its expected numerals?
 - [HIG RTL] Does mixed-direction text, such as names, numbers, and punctuation, render in the right order?
 - [Practice] When text that mixes RTL and LTR scripts is cut, is it cut at its logical end, with the ellipsis on the trailing side for the text's own direction, not on the wrong side?
+- [Practice] Do open overlays, such as menus, popovers, dialogs, sheets, toasts, and tooltips, keep the interface direction: alignment, the side they open on, and the place of close buttons and chevrons?
+- [W3C bidi] Is user text of unknown direction isolated, so a Latin name, phone number, email, or URL inside RTL text does not reorder or pull in nearby punctuation and numbers? Do codes, IDs, and URLs stay LTR? Does an LTR locale also hold up in an RTL layout?
+- [N2] Does any screen show a raw translation key, a fallback string from another locale, a half-translated control, or an internal ID or error code?
 - [Practice] Does longer translated text fit without truncation or clipping? [N2] Does the copy read as written in that language, not translated?
 
 ## 4. Visual hierarchy and consistency
@@ -41,6 +44,10 @@ Items are screening prompts that summarize each success criterion; the criterion
 - [N8 / Practice] Is density right: rows, cards, and toolbars no taller than their content needs, with actions inline where they fit?
 - [WCAG 1.4.3 / 1.4.11] Do text, borders, focus rings, and states keep their contrast in both light and dark?
 - [N1 / N9] Are the empty, loading, and error states designed, not blank or raw?
+- [Practice] Do data extremes hold: zero, one, and many items, very long names and values, large numbers, and a missing optional field or image, with no row grown, clipped, or broken?
+- [WCAG 2.4.7 / Practice] Does each control show distinct hover, active, focus-visible, and disabled states? Does a disabled control show why, on it or next to it?
+- [Practice] In dark, do raised surfaces such as cards, popovers, and dialogs stand apart from the page by a lighter tone, not by shadow alone? Do borders and dividers stay visible? Do logos, images, and charts read on the dark background?
+- [Practice] Do icons come from one set at one stroke width, sized to the text beside them, with filled and outline meaning the same thing everywhere?
 - Build guidance: `../../frontend-ui-engineering/SKILL.md`.
 
 ## 5. Perceived performance
@@ -57,5 +64,7 @@ Items are screening prompts that summarize each success criterion; the criterion
 - WCAG: Web Content Accessibility Guidelines 2.2. https://www.w3.org/TR/WCAG22/
 - HIG RTL: Apple Human Interface Guidelines, Right to left. https://developer.apple.com/design/human-interface-guidelines/right-to-left
 - CWV: Core Web Vitals. https://web.dev/articles/vitals
+- W3C bidi: W3C, Inline markup and bidirectional text in HTML. https://www.w3.org/International/articles/inline-bidi-markup/
+- Ideas adapted, as checklist items only, from: opencode rtl-aware-development (overlays, isolation, direction apart from language) https://github.com/anomalyco/opencode/tree/dev/.opencode/skills/rtl-aware-development ; Front-End-Checklist direction-attribute https://github.com/thedaviddias/Front-End-Checklist/tree/main/skills/direction-attribute ; uxui-audit (data extremes, leaked strings, regression tests) https://github.com/guidancestudio/uxui-audit-skill ; cpuchip ui-review (full state, concrete fixes, rerun) https://github.com/cpuchip/working-with-ai/blob/main/skills/ui-review/SKILL.md ; shipit-ui-design (control states) https://github.com/shipiit/shipit-ui-design ; design-review (states, what works) https://github.com/AslanMazhidov/design-review-skill ; tasteful-design (dark surfaces, icons) https://github.com/spsk-dev/tasteful-design
 - WDG: Vercel Web Interface Guidelines, pinned in `../../web-design-guidelines/REFERENCE.md`. VRBP: `../../vercel-react-best-practices/SKILL.md`. Next docs: `node_modules/next/dist/docs/` in a Next.js project. Cite these for behaviour findings.
 - Practice: common practice with no external source. Weigh it below a sourced item.

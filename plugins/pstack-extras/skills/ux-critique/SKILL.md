@@ -28,6 +28,10 @@ Capture every touched screen and every flow step in each combination of:
 - Desktop width, 1280 CSS px or wider, and phone width, about 390 CSS px.
 - Light and dark theme. When the app has only one theme, capture that one and say so in the report.
 - Every project locale, including each RTL one, for example `he`, `ar`, and `en`. Use realistic content, including text that mixes RTL and LTR scripts and the longest label in each locale.
+- In each RTL locale, user text that mixes scripts, such as a Latin name, phone number, email, or URL inside RTL text. When the app sets direction apart from language, also capture an LTR locale in an RTL layout.
+- Each touched overlay open, such as a menu, popover, dialog, sheet, toast, or tooltip, in every locale including RTL.
+- Each touched control in its hover, active, focus-visible, and disabled states.
+- Data at its extremes: zero, one, and many items, very long names and values, large numbers, and a missing optional field or image.
 
 Set language, direction, and theme through the app's own switch or setting, or the browser's color-scheme preference when the app follows the system. Do not inject `lang`, `dir`, or theme attributes. Save desktop captures under `desktop/` and phone captures under `mobile/`. Name each file `<flow-or-screen>-<step>-<locale>-<light|dark>.png` in both.
 
@@ -68,7 +72,7 @@ These priorities rank fidelity gaps only. The other findings keep their own seve
 
 ## Report
 
-Write one markdown file for the human, `docs/ux-critique/<feature>.md`, with the screenshots in `docs/ux-critique/<feature>/desktop/` and `docs/ux-critique/<feature>/mobile/`. For each flow, link its desktop and mobile screenshots, then list each finding with its screenshot, severity, checklist tag or `opinion`, persona, locale, viewport, theme, reviewer, and whether the other reviewer agrees or disagrees. End with the top 5 fixes.
+Write one markdown file for the human, `docs/ux-critique/<feature>.md`, with the screenshots in `docs/ux-critique/<feature>/desktop/` and `docs/ux-critique/<feature>/mobile/`. For each flow, link its desktop and mobile screenshots, then list each finding with its screenshot, severity, checklist tag or `opinion`, persona, locale, viewport, theme, reviewer, and whether the other reviewer agrees or disagrees. Give each finding a one-line proposed fix in prose that names the element and the project's existing token, class, or value to use. For each high-severity finding, also name the regression test that would fail if it came back, for example no horizontal scroll at phone width. The pass writes neither the fix nor the test. Add a short "What works" list. End with the top 5 fixes. After fixes land, rerun the same captures and confirm each fixed finding is gone.
 
 When the project keeps a prototype, add a "Prototype fidelity" section. List each gap with its screen, locale, viewport, what the prototype shows, what the build shows, and its priority. Name each build screen that has no prototype screen. The report is not done without this section.
 
