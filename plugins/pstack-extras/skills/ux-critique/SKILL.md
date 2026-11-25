@@ -35,6 +35,10 @@ Capture every touched screen and every flow step in each combination of:
 
 Set language, direction, and theme through the app's own switch or setting, or the browser's color-scheme preference when the app follows the system. Do not inject `lang`, `dir`, or theme attributes. Save desktop captures under `desktop/` and phone captures under `mobile/`. Name each file `<flow-or-screen>-<step>-<locale>-<light|dark>.png` in both.
 
+## Models
+
+The review runs on the `judgment and prose` role. This session renders the screens and writes the report. It does not judge the screenshots itself; it hands the review to fresh reviewers on that role. The pstack model sheet's `judgment and prose` line picks their model, so each profile decides it. The Critique section says where each reviewer reads that line. Name no model or effort here or in a reviewer's brief.
+
 ## Critique
 
 Spawn two fresh reviewers that did not write the UI. One is a Claude model and one is a Codex or GPT model. Each sits on the `judgment and prose` seat. Claude reads that line in `.claude/pstack-models.md`; Codex reads it in `.codex/pstack-models.md`. Run the other family on the same seat of its own sheet.
